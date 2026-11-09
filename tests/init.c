@@ -215,6 +215,18 @@ int main(void)
 		goto done;
 	}
 
+	if (cmdline_has("clasp.compare=1")) {
+		if (has_clasp)
+			write_str("/proc/sys/kernel/sched_clasp", "1");
+		if (has_bore)
+			write_str("/proc/sys/kernel/sched_bore", "1");
+		bench("cmp", "ipc", "16", "1000", "4", NULL);
+		if (has_clasp)
+			show_file("/sys/kernel/debug/sched_clasp");
+		out("COMPARE_DONE\n");
+		goto done;
+	}
+
 	if (cmdline_has("clasp.tune=1") && has_clasp) {
 		write_str("/proc/sys/kernel/sched_clasp", "0");
 		bench("t", "ipc", "16", "1000", "4", NULL);

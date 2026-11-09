@@ -1,0 +1,16 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.1-1-cachyos (linux-cachyos@cachyos) (clang version 23.1.4, LLD 23.1.4) #1 SMP PREEMPT_DYNAMIC Sat, 31 Oct 2026 15:33:05 +0000
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet preempt=full clasp.compare=1
+ONLINE 0-7
+CONTROLS clasp=0 bore=0
+RUN cmp ipc 16 1000 4 -
+BEGIN cmp ipc
+RESULT ipc tag=cmp hogs=16 interval_us=1000 samples=4000 p50_us=9.6 p90_us=1582.2 p99_us=1601.9 p999_us=1622.5 max_us=10039.7 mean_us=368.1
+COMPARE_DONE
+[    5.194816] reboot: Power down

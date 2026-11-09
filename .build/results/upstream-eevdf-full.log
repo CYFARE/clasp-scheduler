@@ -1,0 +1,83 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #2 SMP PREEMPT_DYNAMIC Mon Nov  9 21:39:01 IST 2026
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet preempt=full
+ONLINE 0-7
+CONTROLS clasp=0 bore=0
+PHASE base
+RUN base latency 0 0 1000 3
+BEGIN base latency
+LAT setup hogs=0 forkers=0 max=13000
+LAT warm
+LAT go
+LAT measured n=3000
+RESULT latency tag=base hogs=0 forkers=0 interval_us=1000 samples=3000 p50_us=68.5 p90_us=87.9 p99_us=202.0 p999_us=732.6 max_us=1811.4 mean_us=77.3 forks=0
+RUN base latency 1 0 1000 4
+BEGIN base latency
+LAT setup hogs=1 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=base hogs=1 forkers=0 interval_us=1000 samples=4000 p50_us=30.8 p90_us=31.5 p99_us=34.5 p999_us=835.9 max_us=1832.0 mean_us=33.1 forks=0
+RUN base latency 4 0 1000 4
+BEGIN base latency
+LAT setup hogs=4 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=base hogs=4 forkers=0 interval_us=1000 samples=4000 p50_us=51.9 p90_us=52.4 p99_us=56.5 p999_us=1854.0 max_us=2795.4 mean_us=62.1 forks=0
+RUN base latency 8 0 1000 4
+BEGIN base latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=base hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=855.1 p99_us=2658.3 p999_us=8391.5 max_us=11390.7 mean_us=303.8 forks=0
+RUN base latency 16 0 1000 4
+BEGIN base latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=base hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=1112.5 p99_us=2658.1 p999_us=19205.2 max_us=22204.1 mean_us=361.4 forks=0
+RUN base latency 4 2 1000 4
+BEGIN base latency
+LAT setup hogs=4 forkers=2 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=base hogs=4 forkers=2 interval_us=1000 samples=4000 p50_us=52.3 p90_us=53.8 p99_us=2658.9 p999_us=2670.4 max_us=2739.3 mean_us=168.8 forks=1656
+RUN base ipc 1 1000 4 -
+BEGIN base ipc
+RESULT ipc tag=base hogs=1 interval_us=1000 samples=4000 p50_us=8.9 p90_us=12.2 p99_us=28.4 p999_us=1815.1 max_us=1830.2 mean_us=18.8
+RUN base ipc 4 1000 4 -
+BEGIN base ipc
+RESULT ipc tag=base hogs=4 interval_us=1000 samples=4000 p50_us=9.4 p90_us=15.3 p99_us=1647.4 p999_us=2782.3 max_us=2905.3 mean_us=50.2
+RUN base ipc 8 1000 4 -
+BEGIN base ipc
+RESULT ipc tag=base hogs=8 interval_us=1000 samples=4000 p50_us=8.4 p90_us=12.3 p99_us=2621.6 p999_us=2790.4 max_us=9452.8 mean_us=118.6
+RUN base ipc 16 1000 4 -
+BEGIN base ipc
+RESULT ipc tag=base hogs=16 interval_us=1000 samples=4000 p50_us=2682.8 p90_us=2791.0 p99_us=2801.9 p999_us=2806.6 max_us=17672.5 mean_us=1551.3
+RUN base pipe 1 3 - -
+BEGIN base pipe
+RESULT pipe tag=base pairs=1 seconds=3 msgs=6785907 msgs_per_sec=1696477
+RUN base pipe 4 3 - -
+BEGIN base pipe
+RESULT pipe tag=base pairs=4 seconds=3 msgs=23123997 msgs_per_sec=5780999
+RUN base pipe 8 3 - -
+BEGIN base pipe
+RESULT pipe tag=base pairs=8 seconds=3 msgs=40448187 msgs_per_sec=10112047
+RUN base cpu 8 3 - -
+BEGIN base cpu
+RESULT cpu tag=base threads=8 seconds=3 ops=15956684800 ops_per_sec=5318894933
+RUN base fork 4 3 - -
+BEGIN base fork
+RESULT fork tag=base forkers=4 seconds=3 forks=2114 forks_per_sec=705
+BENCH_DONE
+[   63.867640] reboot: Power down

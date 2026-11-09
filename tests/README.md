@@ -27,7 +27,7 @@ tests/run-vm.sh /path/to/bzImage my-tag
 The log is written to `.build/results/my-tag.log`; the full serial output is
 also echoed to the console.  The runner exits nonzero if QEMU fails, a benchmark
 or control write reports `ERROR`, no `RESULT` is produced, or the expected
-`BENCH_DONE`/`QUICK_DONE`/`TUNE_DONE` marker is missing.
+`BENCH_DONE`/`QUICK_DONE`/`TUNE_DONE`/`COMPARE_DONE` marker is missing.
 
 The initramfs is generated in `.build/initramfs/` and cached only for the
 duration of the run; it is rebuilt on every invocation.
@@ -64,6 +64,11 @@ the defaults used by the full suite.
 For a shorter tuning run with the default sysctls, use `clasp.tune=1` instead.
 It runs 16-hog IPC and eight-pair pipe with CLASP off and then on, and ends
 with `TUNE_DONE`.
+
+For cross-scheduler comparisons, use `clasp.compare=1`.  It enables CLASP or
+BORE when the corresponding control exists, runs one default 16-hog IPC test,
+and ends with `COMPARE_DONE`.  Upstream and other baseline kernels run the same
+probe without changing scheduler controls.
 
 ## Benchmarks in `latency_probe.c`
 
@@ -103,9 +108,12 @@ per-mille index; it is not an alias for the maximum.
 
 * Use `ipc` for scheduler policy comparisons.  `latency` is user-visible but
   timer-delivery dominated in a VM.
-* Compare CLASP against its own `ctrl` phase first; this isolates the
-  mechanism from compiler/config differences.  Then compare against the
-  installed CachyOS kernel and an upstream baseline.
+* During development, compare CLASP against its own `ctrl` phase to isolate
+  the mechanism.  Release comparisons should instead lead with pristine
+  upstream EEVDF built with the same configuration (`CONFIG_SCHED_CLASP=n`).
+* Compare CachyOS, BORE, LTS, and other kernels as external references with
+  their versions, compilers, and configurations recorded.  Do not present a
+  CLASP on/off ratio as a cross-scheduler performance ranking.
 * Pipe/cpu/fork are throughput costs.  A scheduler that improves latency at
   the cost of every context switch is not a win for server workloads.
 * A single 4 s run is enough to see a one-slice (2.8 ms) tail, but not enough

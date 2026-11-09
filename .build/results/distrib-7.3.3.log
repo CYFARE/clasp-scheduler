@@ -5,60 +5,60 @@ iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #1 SMP PREEMPT_DYNAMIC Mon Nov  9 20:34:11 IST 2026
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #1 SMP PREEMPT_DYNAMIC Mon Nov  9 21:35:38 IST 2026
 CMDLINE console=ttyS0 rdinit=/init panic=1 quiet clasp.quick=1 preempt=full
 ONLINE 0-7
 CONTROLS clasp=1 bore=0
 QUICK
 RUN q cpu 1 1 - -
 BEGIN q cpu
-RESULT cpu tag=q threads=1 seconds=1 ops=729489408 ops_per_sec=729489408
+RESULT cpu tag=q threads=1 seconds=1 ops=794251264 ops_per_sec=794251264
 RUN q latency 16 0 1000 4
 BEGIN q latency
 LAT setup hogs=16 forkers=0 max=14000
 LAT warm
 LAT go
 LAT measured n=4000
-RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.2 p90_us=1688.7 p99_us=2670.6 p999_us=16856.6 max_us=19855.5 mean_us=416.3 forks=0
+RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=1602.5 p99_us=2687.5 p999_us=8969.1 max_us=11968.4 mean_us=359.5 forks=0
 RUN q ipc 16 1000 4 -
 BEGIN q ipc
-RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=8.0 p90_us=2786.4 p99_us=2799.4 p999_us=2803.7 max_us=19623.7 mean_us=914.9
+RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=5.7 p90_us=2780.5 p99_us=2799.0 p999_us=2805.1 max_us=18497.9 mean_us=921.8
 cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
-0 525 57 0 31722533 1104105 103848 130890172 0 0 22
-1 41 15 0 14733493 132620 16931 35019789 0 0 0
-2 38 21 0 11294035 130092 18076 51709439 0 0 0
-3 203 79 0 23538169 509571 31318 221452085 0 0 0
-4 150 97 0 45294854 709321 87635 242459483 0 0 0
-5 44 27 0 11853514 226903 16688 76625603 0 0 0
-6 25 18 0 9136313 121283 32655 54700696 0 0 0
-7 49 41 0 25893508 235041 100859 113354390 0 0 0
-total 1075 355 0 173466419 3168936 103848 926211657 0 0 22
+0 407 69 0 27799947 859582 78960 109567150 0 0 20
+1 26 21 0 6430389 188632 26159 41312830 0 0 0
+2 30 18 0 14856611 162433 40068 31967758 0 0 1
+3 243 53 0 29422096 495372 52959 148195619 0 0 0
+4 92 51 0 22130090 502152 77612 187388933 0 0 1
+5 223 75 0 36637924 339407 20152 263922956 0 0 0
+6 41 28 0 14778750 206580 24019 105431742 0 0 0
+7 21 14 0 9266410 200874 97281 36446840 0 0 0
+total 1083 329 0 161322217 2955032 97281 924233828 0 0 22
 RUN q latency 16 0 1000 4
 BEGIN q latency
 LAT setup hogs=16 forkers=0 max=14000
 LAT warm
 LAT go
 LAT measured n=4000
-RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.2 p90_us=52.5 p99_us=53.8 p999_us=56.3 max_us=1854.9 mean_us=52.7 forks=0
+RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.4 p99_us=53.5 p999_us=56.8 max_us=1854.2 mean_us=52.7 forks=0
 RUN q ipc 16 1000 4 -
 BEGIN q ipc
-RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=12.0 p90_us=2782.6 p99_us=2798.8 p999_us=2806.7 max_us=21720.6 mean_us=1198.0
+RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=6.7 p90_us=9.9 p99_us=12.7 p999_us=2790.2 max_us=19319.2 mean_us=23.8
 cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
-0 4556 4078 2954 58016841 4771858158 2803310 830090034 3979 3979 22
-1 8029 2095 0 122276090 18087893 48881 32766630553 325 325 0
-2 57 35 0 19073406 294711 33777 116823334 0 0 0
-3 219 94 0 40305861 701328 33394 276738831 0 0 0
-4 180 125 0 58483739 1004220 87635 361959483 0 0 0
-5 48 29 0 19603514 234483 16688 90981134 0 0 0
-6 26 19 0 13136313 124472 32655 58700696 0 0 0
-7 51 43 0 29976893 252318 100859 121354390 0 0 0
-total 13166 6518 2954 360872657 4792557583 2803310 34623278455 4304 4304 22
+0 4440 4092 35 62521588 78316346 8448998 824358674 4012 4012 20
+1 11958 7908 0 127607126 27297049 26159 1607955100 3932 3932 0
+2 32 19 0 18856611 164325 40068 39717758 0 0 1
+3 285 95 0 51642847 831574 52959 297174843 0 0 0
+4 97 54 0 26465286 519579 77612 206638933 0 0 1
+5 227 77 0 40730262 347755 20152 279188581 0 0 0
+6 51 36 0 31022780 265566 24019 144931742 0 0 0
+7 33 23 0 25594801 260449 97281 83212465 0 0 0
+total 17123 12304 35 384441301 108002643 8448998 3483178096 7944 7944 22
 RUN q latency 8 0 1000 4
 BEGIN q latency
 LAT setup hogs=8 forkers=0 max=14000
 LAT warm
 LAT go
 LAT measured n=4000
-RESULT latency tag=q hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.1 p90_us=52.4 p99_us=53.7 p999_us=64.5 max_us=1853.9 mean_us=52.7 forks=0
+RESULT latency tag=q hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.1 p90_us=52.5 p99_us=53.6 p999_us=56.5 max_us=1853.5 mean_us=52.5 forks=0
 QUICK_DONE
-[   25.173064] reboot: Power down
+[   24.013455] reboot: Power down

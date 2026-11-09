@@ -72,7 +72,7 @@ if ! grep -aq '^RESULT ' "$LOG"; then
 	echo "benchmark produced no results; see $LOG" >&2
 	exit 1
 fi
-if ! grep -aqE '^(BENCH_DONE|QUICK_DONE|TUNE_DONE)' "$LOG"; then
+if ! grep -aqE '^(BENCH_DONE|QUICK_DONE|TUNE_DONE|COMPARE_DONE)' "$LOG"; then
 	echo "benchmark did not complete; see $LOG" >&2
 	exit 1
 fi

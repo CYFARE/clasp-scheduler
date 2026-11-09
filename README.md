@@ -7,21 +7,21 @@
 **Latency-aware scheduling for Linux EEVDF.**  
 *Less guessing. More measuring. Better responsiveness under load.*
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Linux](https://img.shields.io/badge/Linux-7.3.3-FCC624?logo=linux&logoColor=black)
-![Status](https://img.shields.io/badge/status-experimental-orange)
+![Status](https://img.shields.io/badge/status-stable-brightgreen)
 ![License](https://img.shields.io/badge/license-GPL--2.0-green)
 
 [Why CLASP?](#why-clasp) ·
 [How it works](#how-it-works) ·
-[Results](#initial-results) ·
+[Results](#scheduler-comparison) ·
 [Install](#build-and-install) ·
 [Tune](#tunables) ·
 [Test](#test-harness)
 
 </div>
 
-CLASP is an experimental Linux EEVDF extension that targets **measured wake-to-run latency**.
+CLASP 1.0 is the stable release of this Linux EEVDF latency controller, targeting **measured wake-to-run latency**.
 
 Instead of guessing whether a task is interactive from burst-time heuristics, CLASP asks a simpler question:
 
@@ -30,9 +30,12 @@ Instead of guessing whether a task is interactive from burst-time heuristics, CL
 If not, CLASP grants a bounded amount of virtual-time credit, moving the task earlier in EEVDF scheduling order. As latency recovers, boost decays above a bounded credit floor.
 
 > [!WARNING]
-> CLASP's reference integration targets **upstream Linux**. The
-> `distrib/run.py` tool rebases it to the latest stable kernel. It is not yet
-> production-ready. Current results come from a single-VM KVM benchmark suite.
+> CLASP's reference integration targets **upstream Linux 7.3.3**, and
+> `distrib/run.py` rebases it to newer stable kernels. The 1.0 designation marks
+> the release and integration interface; it is not a guarantee for every
+> production workload. Current performance results come from one KVM host.
+> Four of seven CLASP IPC comparisons hit a 2.6–2.8 ms p99 tail, so this
+> release must not be presented as having stable performance on that evidence.
 
 ## Why CLASP?
 
@@ -45,14 +48,13 @@ If not, CLASP grants a bounded amount of virtual-time credit, moving the task ea
 
 ### Headline result
 
-With **16 CPU hogs** competing with the probe, two same-kernel CLASP 0.2.0 A/B runs reduced IPC wakeup p99 from **2778.9 µs to 12.6 µs** and **2799.4 µs to 16.8 µs**. The phase order was reversed for the second run.
+Across seven CLASP 1.0.0 comparisons with **16 CPU hogs**, the best IPC p99 was **13.0 µs**, but the median was **2693.8 µs** because four runs reached the one-slice tail. All runs are included below—successful runs are not cherry-picked.
 
-| Run | Off p90 | Off p99 | On p90 | On p99 |
-|---|---:|---:|---:|---:|
-| A: off → on | 650.9 µs | 2778.9 µs | **10.2 µs** | **12.6 µs** |
-| B: on → off | 2786.6 µs | 2799.4 µs | **11.8 µs** | **16.8 µs** |
+| CLASP IPC p99 | Best | Median | Worst |
+|---|---:|---:|---:|
+| Seven independent runs | **13.0 µs** | **2693.8 µs** | **2797.4 µs** |
 
-A separate CachyOS 7.3.1 run measured 1584.6 µs p90 and 1600.3 µs p99. These are preliminary single-host measurements; see [Initial results](#initial-results) for throughput, outliers, and caveats.
+See [Scheduler comparison](#scheduler-comparison) for the upstream EEVDF, CachyOS, BORE, and LTS results, throughput, and validation limits.
 
 ## How it works
 
@@ -144,7 +146,7 @@ Fork handling is entirely O(1): threads inherit the creating thread's latency pr
 
 ## CLASP vs. BORE
 
-| | BORE 7.x | CLASP 0.2.0 |
+| | BORE 7.x | CLASP 1.0.0 |
 |---|---|---|
 | Primary signal | Burst time since sleep/yield | Actual wake-to-run latency |
 | Control model | Open-loop burst mapping | Closed-loop AIMD with hold |
@@ -164,7 +166,7 @@ Example for the Linux 7.3.3 patch:
 ```sh
 cd linux-7.3.3
 
-patch -p1 < /path/to/patches/stable/0001-linux7.3.3-clasp-0.2.0.patch
+patch -p1 < /path/to/patches/stable/0001-linux7.3.3-clasp-1.0.0.patch
 
 make olddefconfig        # CONFIG_SCHED_CLASP defaults to y
 grep CONFIG_SCHED_CLASP .config
@@ -267,7 +269,7 @@ Results are written to:
 
 The harness automatically runs CLASP on/off, BORE on/off, or baseline phases depending on available sysctls. Add `clasp.reverse=1` to the kernel command line for a second run with the CLASP phases reversed.
 
-For a short smoke test, use `clasp.quick=1`; this deliberately applies more aggressive tunables and is not a default-configuration benchmark. For a shorter default-tunables tuning run, use `clasp.tune=1` to test 16-hog IPC and eight-pair pipe off/on.
+For a short smoke test, use `clasp.quick=1`; this deliberately applies more aggressive tunables and is not a default-configuration benchmark. For a shorter default-tunables tuning run, use `clasp.tune=1` to test 16-hog IPC and eight-pair pipe off/on. For repeated cross-scheduler comparisons, use `clasp.compare=1` to run only the default 16-hog IPC probe with CLASP or BORE enabled when available.
 
 Measurements cover IPC and timer wake latency, pipe throughput, CPU throughput, fork throughput, and fork-storm latency. Runs require a completion marker and reject benchmark or control-write errors. See [`tests/README.md`](tests/README.md) for interpretation and caveats.
 
@@ -275,51 +277,60 @@ Measurements cover IPC and timer wake latency, pipe throughput, CPU throughput, 
 
 The original harness had two material reporting defects: p999 used a percent rather than per-mille index and therefore returned the maximum, and the compiler removed the unused CPU workload. The old p999 values and CPU-throughput percentages are not valid performance evidence. The corrected harness preserves the CPU computation, calculates p999 separately from max, checks affinity and control writes, uses atomic IPC timestamps, and supports reversed A/B phase order.
 
-The earlier single-run CachyOS and BORE comparisons were not reproduced on those same kernel builds and are not used as evidence below. Same-kernel CLASP off/on results are the primary comparison.
+Historical BORE numbers and CLASP on/off ratios are not used for the release ranking. Same-kernel controls remain useful during development, but the 1.0 comparison leads with independent upstream EEVDF, CachyOS, BORE, and LTS kernels.
 
-Aggressive quick mode is a functional smoke test, not performance evidence: one clean 0.2.0 smoke returned 2798.8 µs IPC p99 and a follow-up recheck returned 16.8 µs. The full default-configuration A/B runs below are the performance baseline.
+Aggressive quick mode is a functional smoke test only; variable quick-mode results are not used as release performance evidence. The full default-configuration suites and repeated `clasp.compare=1` runs below are the performance baseline.
 
-## Initial results
+## Scheduler comparison
 
-**Environment:** CachyOS host with an Intel CPU, QEMU/KVM with 8 vCPUs and 4 GiB guest RAM, upstream Linux 7.3.3 with the distribution defconfig options, `HZ=1000`, `PREEMPT_DYNAMIC=y` with full preemption, clang/LLD 23.1.4, and `CONFIG_LTO_NONE=y`. QEMU was pinned to host CPUs `0,2,4,...,14`; the separate libvirt guest was left running and was not used for measurements.
+**Environment:** CachyOS host with an Intel CPU, QEMU/KVM with 8 vCPUs and 4 GiB guest RAM, `HZ=1000`, and full preemption. QEMU was pinned to host CPUs `0,2,4,...,14`; the separate libvirt guest was left running and was not used for measurements. Upstream EEVDF and CLASP use Linux 7.3.3, clang/LLD 23.1.4, `CONFIG_LTO_NONE=y`, and configurations differing only in `CONFIG_SCHED_CLASP`.
 
-Each latency result is one 4-second run with 4,000 samples at a 1 ms IPC cadence. CLASP 0.2.0 was tested twice: control-then-enabled and enabled-then-control. Both runs are reported rather than pooling percentiles or selecting the best run.
+Each IPC result is one 4-second run with 4,000 samples at a 1 ms cadence. Every kernel completes the full suite once and six additional IPC-only rounds, with kernel order alternated between rounds. Seven independent runs per kernel are reported using medians, ranges, and tail-failure rates rather than pooling percentiles.
+
+### Tested kernels
+
+| Scheduler / kernel | Version | Compiler | Comparison role |
+|---|---|---|---|
+| Upstream EEVDF | 7.3.3 | clang/LLD 23.1.4 | Matching configuration, `CONFIG_SCHED_CLASP=n` |
+| **CLASP 1.0.0** | **7.3.3** | **clang/LLD 23.1.4** | **Matching configuration, `CONFIG_SCHED_CLASP=y`** |
+| CachyOS default | 7.3.1 | clang/LLD 23.1.4 | External distribution kernel |
+| CachyOS BORE custom | 7.2.9 | clang/LLD 23.1.1 | External BORE kernel, `sched_bore=1` |
+| CachyOS LTS | 6.18.55 | GCC 16.2.1 | External long-term-support kernel |
 
 ### IPC wakeup latency under 16 hogs
 
-![Two CLASP 0.2.0 A/B IPC latency runs on a logarithmic scale](assets/CLASP-Results.webp)
+![Seven-run IPC p99 comparison for upstream EEVDF, CLASP, CachyOS, BORE, and LTS](assets/CLASP-Results.webp)
 
-| Kernel / phase | p50 | p90 | p99 | p999 | Mean |
-|---|---:|---:|---:|---:|---:|
-| A: CLASP off | 9.4 µs | 650.9 µs | 2778.9 µs | 2799.5 µs | 232.1 µs |
-| **A: CLASP on** | **7.3 µs** | **10.2 µs** | **12.6 µs** | **22.9 µs** | **13.7 µs** |
-| **B: CLASP on** | **9.8 µs** | **11.8 µs** | **16.8 µs** | **27.6 µs** | **10.2 µs** |
-| B: CLASP off | 6.8 µs | 2786.6 µs | 2799.4 µs | 2806.6 µs | 900.2 µs |
-| CachyOS 7.3.1 baseline | 10.2 µs | 1584.6 µs | 1600.3 µs | 1608.0 µs | 428.5 µs |
+| Kernel | p90 median | p99 median | p99 min–max | Mean median |
+|---|---:|---:|---:|---:|
+| Upstream EEVDF 7.3.3 | 2780.6 µs | 2797.8 µs | 2764.0–2802.4 µs | 695.0 µs |
+| **CLASP 1.0.0** | **11.6 µs** | **2693.8 µs** | **13.0–2797.4 µs** | **69.1 µs** |
+| CachyOS default 7.3.1 | 1593.2 µs | 1605.3 µs | 1600.7–1628.5 µs | 693.6 µs |
+| CachyOS BORE 7.2.9 | 12.6 µs | **1383.4 µs** | 1266.8–1575.1 µs | 63.2 µs |
+| CachyOS LTS 6.18.55 | 1980.5 µs | 1983.4 µs | 1982.0–1985.8 µs | 1918.3 µs |
 
-The consistent change is the **tail**: enabled p99 is 12.6–16.8 µs, versus approximately 2.8 ms with CLASP off. The separate CachyOS result is an external reference, not an identical-config comparison.
+BORE has the best median p99, followed by CachyOS, LTS, CLASP, and upstream EEVDF. CLASP's median p90 is excellent, but four of its seven p99 results are in the 2693.8–2797.4 µs range. Its three other runs reach 13.0–20.4 µs. This is a bimodal, unstable result—not a general latency win over other schedulers.
 
 > [!IMPORTANT]
-> Maximum-latency outliers remain: 20.9 ms in run A and 1.38 ms in run B. Their host-versus-guest causes were not isolated, so they are not claimed as scheduler improvements or regressions.
+> Eligible preemption-attempt counts were similar in good and bad CLASP runs, so the cause of these failures is not yet established. A stable release label does not resolve this correctness and repeatability blocker.
 
-A recent-miss-only preemption experiment was rejected. It retained a 12.2 µs p90 but allowed p99 to return to 2776.6 µs. This result is why 0.2.0 keeps sticky urgency while the task remains eligible.
+### Throughput comparison
 
-### Relative throughput cost
+These are absolute results from each kernel's single full-suite run. Pipe rates are millions of messages/s, CPU rates are billions of operations/s, and fork rates are forks/s. Different kernel versions and compilers make the matching EEVDF/CLASP pair the cleanest comparison.
 
-Each cell compares CLASP on against its own off phase in that run. Negative values mean lower throughput.
-
-| Version / run | Pipe 1 | Pipe 4 | Pipe 8 | CPU | Fork |
+| Kernel | Pipe 1 | Pipe 4 | Pipe 8 | CPU | Fork |
 |---|---:|---:|---:|---:|---:|
-| 0.1.0 A | −8.1% | −3.6% | −8.2% | −0.3% | 0% |
-| 0.1.0 B | −6.2% | −5.4% | −6.1% | −0.0% | 0% |
-| **0.2.0 A** | **−16.6%** | **−8.6%** | **−9.6%** | **−1.6%** | **0%** |
-| **0.2.0 B** | **−6.5%** | **−8.0%** | **−2.2%** | **+1.8%** | **−0.1%** |
+| Upstream EEVDF 7.3.3 | 1.696 | 5.781 | 10.112 | 5.319 | 705 |
+| **CLASP 1.0.0** | **1.629** | **5.298** | **9.810** | **5.386** | **704** |
+| CachyOS default 7.3.1 | 1.789 | 6.230 | 10.879 | 5.405 | 1237 |
+| CachyOS BORE 7.2.9 | 1.652 | 5.739 | 10.190 | 5.428 | 1000 |
+| CachyOS LTS 6.18.55 | 1.266 | 4.392 | 7.994 | 5.449 | 1000 |
 
-The division-free refill and ineligible-wake early return reduce arithmetic without changing policy, but these measurements do **not** establish a throughput improvement. Pipe overhead remains and varies substantially with phase order. The pipe test also includes shared atomic-counter contention, and fork rates are rounded to integer forks/s. More repeated, less contended throughput tests are needed before making a performance claim.
+Against its matching upstream EEVDF build, CLASP changed Pipe 1/4/8 throughput by **−4.0%, −8.3%, and −3.0%**, CPU throughput by **+1.3%**, and fork throughput by **−0.1%**. These are single-run, order-sensitive results, not proof of a general throughput advantage. Pipe measurements also include shared atomic-counter contention.
 
-## Before production use
+## Validation limits
 
-CLASP is promising, but still needs broader validation:
+CLASP 1.0 is a stable release designation, but the following limits still apply:
 
 - **More benchmarking:** repeated runs, more machines, and identical-config A/B builds.
 - **Outlier analysis:** separate host steal from guest scheduling with tracing and `perf sched`.

@@ -1,0 +1,153 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.2.9-1-cachyos-bore-custom (linux-cachyos-bore-custom@cachyos) (clang version 23.1.1, LLD 23.1.1) #1 SMP PREEMPT_DYNAMIC Mon, 05 Oct 2026 06:43:29 +0000
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet preempt=full
+ONLINE 0-7
+CONTROLS clasp=0 bore=1
+PHASE bore-off
+RUN bore-off latency 0 0 1000 3
+BEGIN bore-off latency
+LAT setup hogs=0 forkers=0 max=13000
+LAT warm
+LAT go
+LAT measured n=3000
+RESULT latency tag=bore-off hogs=0 forkers=0 interval_us=1000 samples=3000 p50_us=72.4 p90_us=86.5 p99_us=187.9 p999_us=430.2 max_us=568.7 mean_us=75.2 forks=0
+RUN bore-off latency 1 0 1000 4
+BEGIN bore-off latency
+LAT setup hogs=1 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-off hogs=1 forkers=0 interval_us=1000 samples=4000 p50_us=51.9 p90_us=52.1 p99_us=53.1 p999_us=974.2 max_us=978.7 mean_us=52.9 forks=0
+RUN bore-off latency 4 0 1000 4
+BEGIN bore-off latency
+LAT setup hogs=4 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-off hogs=4 forkers=0 interval_us=1000 samples=4000 p50_us=52.1 p90_us=52.6 p99_us=55.8 p999_us=1467.9 max_us=2467.4 mean_us=57.2 forks=0
+RUN bore-off latency 8 0 1000 4
+BEGIN bore-off latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-off hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.1 p90_us=52.5 p99_us=603.6 p999_us=3503.8 max_us=6503.0 mean_us=66.5 forks=0
+RUN bore-off latency 16 0 1000 4
+BEGIN bore-off latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-off hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.2 p90_us=52.7 p99_us=1004.8 p999_us=1828.8 max_us=4038.1 mean_us=73.5 forks=0
+RUN bore-off latency 4 2 1000 4
+BEGIN bore-off latency
+LAT setup hogs=4 forkers=2 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-off hogs=4 forkers=2 interval_us=1000 samples=4000 p50_us=52.2 p90_us=52.8 p99_us=61.2 p999_us=1629.7 max_us=2626.6 mean_us=57.2 forks=1336
+RUN bore-off ipc 1 1000 4 -
+BEGIN bore-off ipc
+RESULT ipc tag=bore-off hogs=1 interval_us=1000 samples=4000 p50_us=9.5 p90_us=11.5 p99_us=277.4 p999_us=1029.5 max_us=1041.6 mean_us=19.4
+RUN bore-off ipc 4 1000 4 -
+BEGIN bore-off ipc
+RESULT ipc tag=bore-off hogs=4 interval_us=1000 samples=4000 p50_us=9.7 p90_us=12.5 p99_us=1516.9 p999_us=2623.5 max_us=5403.0 mean_us=50.6
+RUN bore-off ipc 8 1000 4 -
+BEGIN bore-off ipc
+RESULT ipc tag=bore-off hogs=8 interval_us=1000 samples=4000 p50_us=7.5 p90_us=12.5 p99_us=1587.1 p999_us=1919.9 max_us=6323.8 mean_us=78.1
+RUN bore-off ipc 16 1000 4 -
+BEGIN bore-off ipc
+RESULT ipc tag=bore-off hogs=16 interval_us=1000 samples=4000 p50_us=6.7 p90_us=11.8 p99_us=3504.2 p999_us=4657.7 max_us=15392.5 mean_us=134.8
+RUN bore-off pipe 1 3 - -
+BEGIN bore-off pipe
+RESULT pipe tag=bore-off pairs=1 seconds=3 msgs=6701994 msgs_per_sec=1675498
+RUN bore-off pipe 4 3 - -
+BEGIN bore-off pipe
+RESULT pipe tag=bore-off pairs=4 seconds=3 msgs=22940362 msgs_per_sec=5735090
+RUN bore-off pipe 8 3 - -
+BEGIN bore-off pipe
+RESULT pipe tag=bore-off pairs=8 seconds=3 msgs=40515252 msgs_per_sec=10128813
+RUN bore-off cpu 8 3 - -
+BEGIN bore-off cpu
+RESULT cpu tag=bore-off threads=8 seconds=3 ops=16382701568 ops_per_sec=5460900523
+RUN bore-off fork 4 3 - -
+BEGIN bore-off fork
+RESULT fork tag=bore-off forkers=4 seconds=3 forks=2999 forks_per_sec=1000
+PHASE bore-on
+RUN bore-on latency 0 0 1000 3
+BEGIN bore-on latency
+LAT setup hogs=0 forkers=0 max=13000
+LAT warm
+LAT go
+LAT measured n=3000
+RESULT latency tag=bore-on hogs=0 forkers=0 interval_us=1000 samples=3000 p50_us=67.8 p90_us=110.3 p99_us=407.7 p999_us=716.6 max_us=1098.2 mean_us=82.8 forks=0
+RUN bore-on latency 1 0 1000 4
+BEGIN bore-on latency
+LAT setup hogs=1 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-on hogs=1 forkers=0 interval_us=1000 samples=4000 p50_us=51.9 p90_us=52.2 p99_us=53.1 p999_us=55.2 max_us=58.9 mean_us=52.0 forks=0
+RUN bore-on latency 4 0 1000 4
+BEGIN bore-on latency
+LAT setup hogs=4 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-on hogs=4 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.2 p99_us=53.0 p999_us=392.5 max_us=1069.7 mean_us=52.2 forks=0
+RUN bore-on latency 8 0 1000 4
+BEGIN bore-on latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-on hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.4 p99_us=54.0 p999_us=1101.5 max_us=1315.0 mean_us=54.3 forks=0
+RUN bore-on latency 16 0 1000 4
+BEGIN bore-on latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-on hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.2 p90_us=52.5 p99_us=145.6 p999_us=3507.3 max_us=6506.4 mean_us=63.6 forks=0
+RUN bore-on latency 4 2 1000 4
+BEGIN bore-on latency
+LAT setup hogs=4 forkers=2 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=bore-on hogs=4 forkers=2 interval_us=1000 samples=4000 p50_us=52.4 p90_us=52.8 p99_us=334.5 p999_us=1101.6 max_us=1115.6 mean_us=57.7 forks=2878
+RUN bore-on ipc 1 1000 4 -
+BEGIN bore-on ipc
+RESULT ipc tag=bore-on hogs=1 interval_us=1000 samples=4000 p50_us=7.2 p90_us=15.4 p99_us=22.0 p999_us=58.7 max_us=63.5 mean_us=8.9
+RUN bore-on ipc 4 1000 4 -
+BEGIN bore-on ipc
+RESULT ipc tag=bore-on hogs=4 interval_us=1000 samples=4000 p50_us=9.5 p90_us=12.4 p99_us=105.7 p999_us=1197.8 max_us=2412.8 mean_us=18.3
+RUN bore-on ipc 8 1000 4 -
+BEGIN bore-on ipc
+RESULT ipc tag=bore-on hogs=8 interval_us=1000 samples=4000 p50_us=6.3 p90_us=11.3 p99_us=1033.0 p999_us=1411.9 max_us=6496.0 mean_us=25.6
+RUN bore-on ipc 16 1000 4 -
+BEGIN bore-on ipc
+RESULT ipc tag=bore-on hogs=16 interval_us=1000 samples=4000 p50_us=7.1 p90_us=12.0 p99_us=1266.8 p999_us=3454.7 max_us=14315.6 mean_us=61.8
+RUN bore-on pipe 1 3 - -
+BEGIN bore-on pipe
+RESULT pipe tag=bore-on pairs=1 seconds=3 msgs=6607367 msgs_per_sec=1651842
+RUN bore-on pipe 4 3 - -
+BEGIN bore-on pipe
+RESULT pipe tag=bore-on pairs=4 seconds=3 msgs=22957312 msgs_per_sec=5739328
+RUN bore-on pipe 8 3 - -
+BEGIN bore-on pipe
+RESULT pipe tag=bore-on pairs=8 seconds=3 msgs=40760579 msgs_per_sec=10190145
+RUN bore-on cpu 8 3 - -
+BEGIN bore-on cpu
+RESULT cpu tag=bore-on threads=8 seconds=3 ops=16283836416 ops_per_sec=5427945472
+RUN bore-on fork 4 3 - -
+BEGIN bore-on fork
+RESULT fork tag=bore-on forkers=4 seconds=3 forks=3001 forks_per_sec=1000
+BENCH_DONE
+[  121.351252] reboot: Power down

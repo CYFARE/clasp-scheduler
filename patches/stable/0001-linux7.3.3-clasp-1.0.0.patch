@@ -1,7 +1,7 @@
-From 3bf77ef1910ebe0ceb478c824552772c136e12ff Mon Sep 17 00:00:00 2001
+From 54084f34787418b2181fb2cdcd10ee6137f576c5 Mon Sep 17 00:00:00 2001
 From: CLASP-Scheduler <security@cyfare.net>
-Date: Mon, 9 Nov 2026 20:31:21 +0530
-Subject: [PATCH] linux7.3.3-clasp-0.2.0
+Date: Mon, 9 Nov 2026 21:52:02 +0530
+Subject: [PATCH] linux7.3.3-clasp-1.0.0
 
 Add bounded wake-to-run latency feedback to EEVDF with per-task credit, eligibility guardrails, and O(1) fork handling.
 
@@ -137,7 +137,7 @@ index 0000000..f6ee0a0
 +
 +#endif /* _LINUX_SCHED_CLASP_H */
 diff --git a/init/Kconfig b/init/Kconfig
-index ad592fd..29a01d3 100644
+index ad592fd..82c0344 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -1494,6 +1494,24 @@ config CHECKPOINT_RESTORE
@@ -157,8 +157,8 @@ index ad592fd..29a01d3 100644
 +
 +	  Unlike burst-time based schedulers, CLASP performs no per-tick
 +	  accounting and never modifies task weights, PELT averages, or
-+	  hierarchical load.  It is a research feature: benchmark it for your
-+	  workload before enabling it in production.
++	  hierarchical load.  Validate it for your workload before enabling
++	  it in production.
 +
 +	  If unsure, say Y here.
 +

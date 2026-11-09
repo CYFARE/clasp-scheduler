@@ -1,62 +1,86 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700">
-  <defs>
-    <style>
-      .title { font: 700 34px 'DejaVu Sans', sans-serif; fill: #17202a; }
-      .subtitle { font: 18px 'DejaVu Sans', sans-serif; fill: #52606d; }
-      .heading { font: 700 20px 'DejaVu Sans', sans-serif; fill: #17202a; }
-      .text { font: 17px 'DejaVu Sans', sans-serif; fill: #24313d; }
-      .small { font: 14px 'DejaVu Sans', sans-serif; fill: #52606d; }
-      .value { font: 700 15px 'DejaVu Sans', sans-serif; fill: #24313d; }
-      .grid { stroke: #d7dde2; stroke-width: 1; }
-    </style>
-  </defs>
-  <rect width="1400" height="700" fill="#ffffff"/>
-  <text x="700" y="52" text-anchor="middle" class="title">CLASP 0.2.0 · 16-hog IPC wake latency</text>
-  <text x="700" y="84" text-anchor="middle" class="subtitle">Linux 7.3.3 KVM · 8 vCPUs · default sysctls · 4,000 samples per run</text>
-
-  <rect x="950" y="108" width="22" height="16" fill="#aab4bd"/>
-  <text x="982" y="122" class="text">CLASP off</text>
-  <rect x="1090" y="108" width="22" height="16" fill="#3478b9"/>
-  <text x="1122" y="122" class="text">CLASP on</text>
-
-  <line x1="350" y1="145" x2="350" y2="555" class="grid"/>
-  <line x1="593" y1="145" x2="593" y2="555" class="grid"/>
-  <line x1="837" y1="145" x2="837" y2="555" class="grid"/>
-  <line x1="1080" y1="145" x2="1080" y2="555" class="grid"/>
-  <line x1="1203" y1="145" x2="1203" y2="555" class="grid"/>
-
-  <text x="60" y="176" class="heading">Run A · off → on</text>
-  <text x="180" y="208" class="text">p90</text>
-  <rect x="350" y="187" width="646" height="22" fill="#aab4bd"/>
-  <text x="1006" y="204" class="value">650.9 µs</text>
-  <rect x="350" y="217" width="246" height="22" fill="#3478b9"/>
-  <text x="606" y="234" class="value">10.2 µs</text>
-
-  <text x="180" y="278" class="text">p99</text>
-  <rect x="350" y="257" width="791" height="22" fill="#aab4bd"/>
-  <text x="1151" y="274" class="value">2778.9 µs</text>
-  <rect x="350" y="287" width="266" height="22" fill="#3478b9"/>
-  <text x="626" y="304" class="value">12.6 µs</text>
-
-  <text x="60" y="366" class="heading">Run B · on → off</text>
-  <text x="180" y="398" class="text">p90</text>
-  <rect x="350" y="377" width="792" height="22" fill="#aab4bd"/>
-  <text x="1152" y="394" class="value">2786.6 µs</text>
-  <rect x="350" y="407" width="260" height="22" fill="#3478b9"/>
-  <text x="620" y="424" class="value">11.8 µs</text>
-
-  <text x="180" y="468" class="text">p99</text>
-  <rect x="350" y="447" width="793" height="22" fill="#aab4bd"/>
-  <text x="1153" y="464" class="value">2799.4 µs</text>
-  <rect x="350" y="477" width="296" height="22" fill="#3478b9"/>
-  <text x="656" y="494" class="value">16.8 µs</text>
-
-  <line x1="350" y1="555" x2="1250" y2="555" stroke="#7d8992" stroke-width="2"/>
-  <text x="350" y="584" text-anchor="middle" class="small">1 µs</text>
-  <text x="593" y="584" text-anchor="middle" class="small">10 µs</text>
-  <text x="837" y="584" text-anchor="middle" class="small">100 µs</text>
-  <text x="1080" y="584" text-anchor="middle" class="small">1 ms</text>
-  <text x="1203" y="584" text-anchor="middle" class="small">3 ms</text>
-  <text x="1250" y="620" text-anchor="end" class="small">Lower is better · logarithmic scale</text>
-  <text x="700" y="661" text-anchor="middle" class="small">Individual runs are shown; percentiles are not pooled and the best run is not selected.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs><style>
+.title{font:700 34px 'DejaVu Sans',sans-serif;fill:#17202a}.subtitle{font:18px 'DejaVu Sans',sans-serif;fill:#52606d}.heading{font:700 21px 'DejaVu Sans',sans-serif;fill:#17202a}.text{font:17px 'DejaVu Sans',sans-serif;fill:#24313d}.small{font:14px 'DejaVu Sans',sans-serif;fill:#52606d}.value{font:700 17px 'DejaVu Sans',sans-serif;fill:#24313d}.grid{stroke:#d7dde2;stroke-width:1}
+</style></defs><rect width="1600" height="900" fill="#fff"/>
+<text x="800" y="52" text-anchor="middle" class="title">16-hog IPC p99 · scheduler comparison</text>
+<text x="800" y="84" text-anchor="middle" class="subtitle">Seven independent 4-second runs per kernel · median bars, individual runs, and min–max range</text>
+<line x1="350.0" y1="135" x2="350.0" y2="750" class="grid"/>
+<text x="350.0" y="785" text-anchor="middle" class="small">1 µs</text>
+<line x1="579.8" y1="135" x2="579.8" y2="750" class="grid"/>
+<text x="579.8" y="785" text-anchor="middle" class="small">10 µs</text>
+<line x1="809.6" y1="135" x2="809.6" y2="750" class="grid"/>
+<text x="809.6" y="785" text-anchor="middle" class="small">100 µs</text>
+<line x1="1039.4" y1="135" x2="1039.4" y2="750" class="grid"/>
+<text x="1039.4" y="785" text-anchor="middle" class="small">1 ms</text>
+<line x1="1200.0" y1="135" x2="1200.0" y2="750" class="grid"/>
+<text x="1200.0" y="785" text-anchor="middle" class="small">5 ms</text>
+<text x="1240" y="125" class="small">Median p99</text><text x="1400" y="125" class="small">Range</text>
+<text x="45" y="185" class="heading">Upstream EEVDF</text>
+<text x="45" y="210" class="small">Linux 7.3.3</text>
+<rect x="350" y="172" width="792.1" height="25" rx="4" fill="#7d8992" opacity="0.82"/>
+<line x1="1140.8" y1="219" x2="1142.2" y2="219" stroke="#7d8992" stroke-width="3"/>
+<circle cx="1142.2" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1142.1" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1142.2" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1140.8" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1142.1" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1141.4" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<circle cx="1142.0" cy="219" r="5.5" fill="#7d8992" stroke="#fff" stroke-width="1"/>
+<text x="1240" y="190" class="value">2797.8 µs</text>
+<text x="1400" y="190" class="small">2764.0–2802.4</text>
+<text x="45" y="297" class="heading">CLASP 1.0.0</text>
+<text x="45" y="322" class="small">Linux 7.3.3</text>
+<rect x="350" y="284" width="788.3" height="25" rx="4" fill="#3478b9" opacity="0.82"/>
+<line x1="606.0" y1="331" x2="1142.0" y2="331" stroke="#3478b9" stroke-width="3"/>
+<circle cx="617.6" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="650.9" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="1141.9" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="1142.0" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="1141.9" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="1138.3" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<circle cx="606.0" cy="331" r="5.5" fill="#3478b9" stroke="#fff" stroke-width="1"/>
+<text x="1240" y="302" class="value">2693.8 µs</text>
+<text x="1400" y="302" class="small">13.0–2797.4</text>
+<text x="45" y="409" class="heading">CachyOS default</text>
+<text x="45" y="434" class="small">Linux 7.3.1</text>
+<rect x="350" y="396" width="736.6" height="25" rx="4" fill="#d28a2e" opacity="0.82"/>
+<line x1="1086.3" y1="443" x2="1088.0" y2="443" stroke="#d28a2e" stroke-width="3"/>
+<circle cx="1086.7" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1086.7" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1086.5" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1086.4" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1086.3" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1086.6" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<circle cx="1088.0" cy="443" r="5.5" fill="#d28a2e" stroke="#fff" stroke-width="1"/>
+<text x="1240" y="414" class="value">1605.3 µs</text>
+<text x="1400" y="414" class="small">1600.7–1628.5</text>
+<text x="45" y="521" class="heading">CachyOS BORE</text>
+<text x="45" y="546" class="small">Linux 7.2.9</text>
+<rect x="350" y="508" width="721.8" height="25" rx="4" fill="#3c9463" opacity="0.82"/>
+<line x1="1063.0" y1="555" x2="1084.7" y2="555" stroke="#3c9463" stroke-width="3"/>
+<circle cx="1063.0" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1075.5" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1066.5" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1084.7" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1063.8" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1071.8" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<circle cx="1075.4" cy="555" r="5.5" fill="#3c9463" stroke="#fff" stroke-width="1"/>
+<text x="1240" y="526" class="value">1383.4 µs</text>
+<text x="1400" y="526" class="small">1266.8–1575.1</text>
+<text x="45" y="633" class="heading">CachyOS LTS</text>
+<text x="45" y="658" class="small">Linux 6.18.55</text>
+<rect x="350" y="620" width="757.7" height="25" rx="4" fill="#8064a2" opacity="0.82"/>
+<line x1="1107.7" y1="667" x2="1107.8" y2="667" stroke="#8064a2" stroke-width="3"/>
+<circle cx="1107.7" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.7" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.8" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.8" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.7" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.8" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<circle cx="1107.7" cy="667" r="5.5" fill="#8064a2" stroke="#fff" stroke-width="1"/>
+<text x="1240" y="638" class="value">1983.4 µs</text>
+<text x="1400" y="638" class="small">1982.0–1985.8</text>
+<line x1="350" y1="750" x2="1200" y2="750" stroke="#7d8992" stroke-width="2"/>
+<text x="1200" y="823" text-anchor="end" class="small">Lower is better · logarithmic scale · all seven runs shown</text>
+<text x="800" y="862" text-anchor="middle" class="small">CLASP has three low-latency runs and four one-slice p99 failures; no run is omitted.</text>
 </svg>
