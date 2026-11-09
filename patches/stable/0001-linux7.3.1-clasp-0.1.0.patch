@@ -1,0 +1,1049 @@
+From 2952ed4f6d3e5bd3eaad860eae18e2470a7fe16d Mon Sep 17 00:00:00 2001
+From: CLASP Project <clasp@example.com>
+Date: Mon, 9 Nov 2026 18:49:26 +0530
+Subject: [PATCH] linux7.3.1-clasp-0.1.0
+
+---
+ include/linux/sched.h       |  33 ++
+ include/linux/sched/clasp.h |  61 +++
+ init/Kconfig                |  18 +
+ kernel/sched/Makefile       |   1 +
+ kernel/sched/clasp.c        | 716 ++++++++++++++++++++++++++++++++++++
+ kernel/sched/core.c         |   7 +
+ kernel/sched/fair.c         |  71 ++++
+ 7 files changed, 907 insertions(+)
+ create mode 100644 include/linux/sched/clasp.h
+ create mode 100644 kernel/sched/clasp.c
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 78bfc0e..1de7371 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -832,6 +832,36 @@ struct task_ipi_mask {
+ struct task_ipi_mask { };
+ #endif
+ 
++#ifdef CONFIG_SCHED_CLASP
++/*
++ * CLASP (Closed-Loop Adaptive Scheduling Policy) per-task state.
++ *
++ * All times are nanoseconds.  The context is intentionally small and lives
++ * in task_struct so that wakeup and sleep paths never allocate or take a
++ * remote cache line just to read scheduling history.
++ */
++struct clasp_ctx {
++	u64	wait_start;		/* rq clock at wake enqueue */
++	u64	sleep_start;		/* rq clock at voluntary sleep */
++	u64	episode_exec;		/* sum_exec_runtime at wake */
++	u64	last_exec;		/* sum_exec_runtime at last wake */
++	u64	last_budget;		/* rq clock of last budget refill */
++	u64	last_fork;		/* parent fork timestamp */
++	u64	hold_until;		/* keep boost active until this time */
++	u32	run_avg;		/* EWMA of CPU ns per wake episode */
++	u32	sleep_avg;		/* EWMA of voluntary sleep ns */
++	u32	lat_avg;		/* EWMA of observed wake-to-run latency */
++	u32	lat_last;		/* last observed wake-to-run latency */
++	u32	boost;			/* desired credit per wake, ns */
++	u32	budget;			/* token bucket for extra CPU time, ns */
++	u32	credit_outstanding;	/* granted but not yet consumed, ns */
++	u32	child_run_avg;		/* EWMA of children's run_avg */
++	u8	flags;
++	u8	fork_burst;
++	u8	pad[2];
++};
++#endif /* CONFIG_SCHED_CLASP */
++
+ struct task_struct {
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	/*
+@@ -890,6 +920,9 @@ struct task_struct {
+ 	struct sched_rt_entity		rt;
+ 	struct sched_dl_entity		dl;
+ 	struct sched_dl_entity		*dl_server;
++#ifdef CONFIG_SCHED_CLASP
++	struct clasp_ctx		clasp;
++#endif
+ #ifdef CONFIG_SCHED_CLASS_EXT
+ 	struct sched_ext_entity		scx;
+ #endif
+diff --git a/include/linux/sched/clasp.h b/include/linux/sched/clasp.h
+new file mode 100644
+index 0000000..f6ee0a0
+--- /dev/null
++++ b/include/linux/sched/clasp.h
+@@ -0,0 +1,61 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _LINUX_SCHED_CLASP_H
++#define _LINUX_SCHED_CLASP_H
++
++#include <linux/bits.h>
++#include <linux/jump_label.h>
++#include <linux/types.h>
++
++struct task_struct;
++struct sched_entity;
++
++#ifdef CONFIG_SCHED_CLASP
++
++/*
++ * Per-task state flags.  These live in struct clasp_ctx::flags, which is
++ * part of task_struct and is therefore only touched while the task's rq
++ * lock (or the task itself during fork) is held.
++ */
++#define CLASP_F_VALID		BIT(0)
++#define CLASP_F_SLEEPING	BIT(1)
++#define CLASP_F_EPISODE		BIT(2)
++#define CLASP_F_PREEMPT		BIT(3)
++#define CLASP_F_FORK_HEAVY	BIT(4)
++#define CLASP_F_PROBATION	BIT(5)
++#define CLASP_F_PARENT_UPDATED	BIT(6)
++#define CLASP_F_URGENT		BIT(7)
++
++extern u8 sched_clasp;
++extern u8 sched_clasp_preempt;
++DECLARE_STATIC_KEY_TRUE(sched_clasp_key);
++
++u32 clasp_prepare_wake(struct task_struct *p, struct sched_entity *se,
++		       u64 now);
++void clasp_task_start(struct task_struct *p, struct sched_entity *se, u64 now);
++void clasp_task_sleep(struct task_struct *p, struct sched_entity *se, u64 now);
++void clasp_task_fork(struct task_struct *p, struct task_struct *parent);
++void clasp_task_dead(struct task_struct *p);
++void clasp_note_preempt(bool eligible);
++void sched_init_clasp(void);
++
++#else /* !CONFIG_SCHED_CLASP */
++
++static inline u32 clasp_prepare_wake(struct task_struct *p,
++				     struct sched_entity *se, u64 now)
++{
++	return 0;
++}
++
++static inline void clasp_task_start(struct task_struct *p,
++				    struct sched_entity *se, u64 now) { }
++static inline void clasp_task_sleep(struct task_struct *p,
++				    struct sched_entity *se, u64 now) { }
++static inline void clasp_task_fork(struct task_struct *p,
++				   struct task_struct *parent) { }
++static inline void clasp_task_dead(struct task_struct *p) { }
++static inline void clasp_note_preempt(bool eligible) { }
++static inline void sched_init_clasp(void) { }
++
++#endif /* CONFIG_SCHED_CLASP */
++
++#endif /* _LINUX_SCHED_CLASP_H */
+diff --git a/init/Kconfig b/init/Kconfig
+index ad592fd..29a01d3 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1494,6 +1494,24 @@ config CHECKPOINT_RESTORE
+ 
+ 	  If unsure, say N here.
+ 
++config SCHED_CLASP
++	bool "Closed-Loop Adaptive Scheduling Policy"
++	default y
++	help
++	  CLASP augments EEVDF with a bounded latency control loop.  It
++	  measures each task's actual wake-to-run delay, compares it with a
++	  target derived from that task's sleep cadence, and grants a limited
++	  amount of virtual-time credit when the target is missed.  Extra CPU
++	  time is rate-limited by a token bucket, so fairness and throughput
++	  are not permanently displaced by interactive tasks.
++
++	  Unlike burst-time based schedulers, CLASP performs no per-tick
++	  accounting and never modifies task weights, PELT averages, or
++	  hierarchical load.  It is a research feature: benchmark it for your
++	  workload before enabling it in production.
++
++	  If unsure, say Y here.
++
+ config SCHED_AUTOGROUP
+ 	bool "Automatic process group scheduling"
+ 	select CGROUPS
+diff --git a/kernel/sched/Makefile b/kernel/sched/Makefile
+index b1f1a36..02d3587 100644
+--- a/kernel/sched/Makefile
++++ b/kernel/sched/Makefile
+@@ -38,5 +38,6 @@ endif
+ #
+ obj-y += core.o
+ obj-y += fair.o
++obj-$(CONFIG_SCHED_CLASP) += clasp.o
+ obj-y += build_policy.o
+ obj-y += build_utility.o
+diff --git a/kernel/sched/clasp.c b/kernel/sched/clasp.c
+new file mode 100644
+index 0000000..96fe7e4
+--- /dev/null
++++ b/kernel/sched/clasp.c
+@@ -0,0 +1,716 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CLASP: Closed-Loop Adaptive Scheduling Policy
++ *
++ * CLASP augments EEVDF with a small per-task control loop:
++ *
++ *   - It observes the actual wake-to-run latency of each task.
++ *   - It compares that latency with a target derived from the task's own
++ *     sleep cadence (frequent short sleepers get tighter targets).
++ *   - It drives a bounded amount of virtual-time credit with an AIMD
++ *     controller and a token bucket, so responsiveness improves without
++ *     permanently changing fair-share weights.
++ *
++ * The scheduler deliberately has no per-tick accounting.  It touches a task
++ * only when the task is placed on a runqueue, first runs after a wake, goes
++ * to sleep, or forks.  This keeps the cost independent of scheduling tick
++ * rate and avoids changing se->load.weight / PELT / h_load.
++ *
++ * Copyright (C) 2026 CLASP authors
++ */
++
++#include <linux/debugfs.h>
++#include <linux/fs.h>
++#include <linux/jump_label.h>
++#include <linux/ktime.h>
++#include <linux/limits.h>
++#include <linux/math64.h>
++#include <linux/minmax.h>
++#include <linux/percpu.h>
++#include <linux/printk.h>
++#include <linux/rcupdate.h>
++#include <linux/sched.h>
++#include <linux/sched/clasp.h>
++#include <linux/seq_file.h>
++#include <linux/sysctl.h>
++#include <linux/time64.h>
++
++#include "sched.h"
++
++#ifdef CONFIG_SCHED_CLASP
++
++#define CLASP_RUN_SHIFT		3	/* 1/8 EWMA of run episode */
++#define CLASP_LAT_SHIFT		2	/* 1/4 EWMA of observed latency */
++#define CLASP_MIN_STEP_NS	50000ULL
++#define CLASP_FORK_STORM_NS	1000000ULL
++
++DEFINE_STATIC_KEY_TRUE(sched_clasp_key);
++
++u8 __read_mostly sched_clasp = 1;
++u8 __read_mostly sched_clasp_preempt = 1;
++
++u32 __read_mostly sched_clasp_target_min_us = 250;
++u32 __read_mostly sched_clasp_target_max_us = 8000;
++u32 __read_mostly sched_clasp_target_shift = 2;
++u32 __read_mostly sched_clasp_boost_max_us = 4000;
++u32 __read_mostly sched_clasp_budget_pct = 100;
++u32 __read_mostly sched_clasp_budget_cap_us = 8000;
++u32 __read_mostly sched_clasp_duty_pct = 80;
++u32 __read_mostly sched_clasp_min_sleep_us = 100;
++u32 __read_mostly sched_clasp_fork_penalty_us = 4000;
++
++static int maxval_1s_us = 1000000;
++static int maxval_100 = 100;
++static int maxval_8 = 8;
++
++struct clasp_pcpu_stats {
++	u64 wakeups;
++	u64 boosted;
++	u64 misses;
++	u64 credit_ns;
++	u64 lat_sum_ns;
++	u64 lat_max_ns;
++	u64 boost_sum_ns;
++	u64 preempt_try;
++	u64 preempt_ok;
++	u64 ineligible;
++};
++
++static DEFINE_PER_CPU(struct clasp_pcpu_stats, clasp_stats);
++
++static inline u32 clasp_ns_to_u32(u64 ns)
++{
++	return ns > U32_MAX ? U32_MAX : (u32)ns;
++}
++
++/*
++ * Integer EWMA that does not overflow and moves both up and down.  shift=0
++ * degenerates to "use the newest sample".
++ */
++static inline u32 clasp_ewma(u32 old, u32 new, unsigned int shift)
++{
++	if (!shift)
++		return new;
++	if (new >= old)
++		return old + ((new - old) >> shift);
++	return old - ((old - new) >> shift);
++}
++
++static inline u32 clasp_boost_max_ns(void)
++{
++	return clasp_ns_to_u32((u64)sched_clasp_boost_max_us *
++			       NSEC_PER_USEC);
++}
++
++static inline u32 clasp_budget_cap_ns(void)
++{
++	return clasp_ns_to_u32((u64)sched_clasp_budget_cap_us *
++			       NSEC_PER_USEC);
++}
++
++static u32 clasp_target_ns(const struct clasp_ctx *c)
++{
++	u64 min_ns = (u64)sched_clasp_target_min_us * NSEC_PER_USEC;
++	u64 max_ns = (u64)sched_clasp_target_max_us * NSEC_PER_USEC;
++	unsigned int shift = min_t(u32, sched_clasp_target_shift, 8);
++	u64 target;
++
++	if (max_ns < min_ns)
++		max_ns = min_ns;
++
++	target = (u64)c->sleep_avg >> shift;
++	target = clamp(target, min_ns, max_ns);
++
++	return clasp_ns_to_u32(target);
++}
++
++/*
++ * Convert the task's negative EEVDF lag (virtual time) into nanoseconds of
++ * CPU time.  An urgent waker that is ineligible because it is ahead of the
++ * runqueue's virtual time cannot be picked at all; giving it at least this
++ * much credit makes the virtual-time comparison meaningful again.  The
++ * token bucket still bounds how much of this repair can be granted.
++ */
++static u32 clasp_debt_ns(struct sched_entity *se)
++{
++	s64 vlag = READ_ONCE(se->vlag);
++	unsigned long weight;
++	u64 v, ns;
++
++	if (vlag >= 0)
++		return 0;
++
++	weight = READ_ONCE(se->h_load.weight);
++	if (!weight)
++		weight = NICE_0_LOAD;
++
++	v = (u64)(-(vlag + 1)) + 1;
++	v = min(v, 1000000000000ULL);
++	ns = div64_u64(v * weight, NICE_0_LOAD);
++
++	return clasp_ns_to_u32(ns);
++}
++
++/*
++ * The token bucket earns extra CPU-time credit in proportion to wall time
++ * elapsed since the last wake.  A task that sleeps half of the time can
++ * therefore obtain at most budget_pct of its sleep time as extra CPU, and
++ * the absolute amount is capped by budget_cap_us.
++ */
++static void clasp_refill_budget(struct clasp_ctx *c, u64 now)
++{
++	u64 elapsed, cap, refill;
++
++	if (!c->last_budget) {
++		c->last_budget = now;
++		return;
++	}
++
++	elapsed = now > c->last_budget ? now - c->last_budget : 0;
++	c->last_budget = now;
++	if (!elapsed)
++		return;
++
++	cap = (u64)sched_clasp_budget_cap_us * NSEC_PER_USEC;
++	if (elapsed > cap)
++		elapsed = cap;		/* pct is bounded by 100 */
++
++	refill = div64_u64(elapsed * (u64)sched_clasp_budget_pct, 100);
++	refill = min(refill, cap);
++	c->budget = (u32)min_t(u64, cap, (u64)c->budget + refill);
++}
++
++static void clasp_update_parent(struct task_struct *p)
++{
++	struct task_struct *parent;
++	u32 avg;
++
++	if (p->clasp.flags & CLASP_F_PARENT_UPDATED)
++		return;
++
++	/* Only process leaders represent fork-heavy work; threads do not. */
++	if (p->tgid != p->pid)
++		return;
++
++	rcu_read_lock();
++	parent = rcu_dereference(p->real_parent);
++	if (parent && parent != p) {
++		avg = clasp_ewma(READ_ONCE(parent->clasp.child_run_avg),
++				 p->clasp.run_avg, 2);
++		WRITE_ONCE(parent->clasp.child_run_avg, avg);
++		p->clasp.flags |= CLASP_F_PARENT_UPDATED;
++	}
++	rcu_read_unlock();
++}
++
++/*
++ * Called from place_entity() before enqueue.  Returns a virtual-time credit
++ * in nanoseconds of CPU time; fair.c converts it with calc_delta_fair().
++ */
++u32 clasp_prepare_wake(struct task_struct *p, struct sched_entity *se, u64 now)
++{
++	struct clasp_ctx *c = &p->clasp;
++	u32 target, bmax, desired, headroom, credit = 0;
++	u64 exec, ran;
++	bool allowed;
++
++	if (unlikely(!(c->flags & CLASP_F_VALID)))
++		return 0;
++
++	/* Latency hints are only meaningful for ordinary fair tasks. */
++	if (p->policy != SCHED_NORMAL)
++		return 0;
++
++	if (c->flags & CLASP_F_SLEEPING) {
++		u64 slept = 0;
++
++		if (c->sleep_start)
++			slept = now > c->sleep_start ?
++				now - c->sleep_start : 0;
++
++		/*
++		 * Adapt downward immediately: a process that slept for seconds
++		 * while starting up must not keep an 8 ms latency target after it
++		 * switches to a 1 ms or 16 ms cadence.  Upward changes are smoothed
++		 * so a single long sleep does not desensitize the task.
++		 */
++		if (slept && slept < c->sleep_avg)
++			c->sleep_avg = clasp_ns_to_u32(slept);
++		else
++			c->sleep_avg = clasp_ewma(c->sleep_avg,
++						  clasp_ns_to_u32(slept), 1);
++		c->sleep_start = 0;
++		c->flags &= ~CLASP_F_SLEEPING;
++	}
++
++	clasp_refill_budget(c, now);
++
++	exec = se->sum_exec_runtime;
++	ran = exec > c->last_exec ? exec - c->last_exec : 0;
++	c->last_exec = exec;
++	if (ran >= c->credit_outstanding)
++		c->credit_outstanding = 0;
++	else
++		c->credit_outstanding -= (u32)ran;
++
++	/* One CPU-time episode begins at the first wake and ends at sleep. */
++	if (!(c->flags & CLASP_F_EPISODE)) {
++		c->episode_exec = exec;
++		c->flags |= CLASP_F_EPISODE;
++	}
++
++	/* Keep the oldest outstanding wake time for a spurious wakeup. */
++	if (!c->wait_start)
++		c->wait_start = now ? now : 1;
++
++	target = clasp_target_ns(c);
++
++	allowed = !(c->flags & (CLASP_F_FORK_HEAVY | CLASP_F_PROBATION));
++	if ((u64)c->run_avg * 100 >=
++	    (u64)sched_clasp_duty_pct * ((u64)c->run_avg + c->sleep_avg))
++		allowed = false;
++
++	/*
++	 * Sub-100us IPC ping-pong is already handled by EEVDF's normal
++	 * wakeup preemption; forcing it only adds context-switch overhead.
++	 * CLASP targets human-visible cadences (audio, input, frames).
++	 */
++	if ((u64)c->sleep_avg <
++	    (u64)sched_clasp_min_sleep_us * NSEC_PER_USEC)
++		allowed = false;
++
++	/* A small latency floor for proven low-duty sleepers. */
++	if (allowed && c->boost < (target >> 1))
++		c->boost = target >> 1;
++
++	bmax = clasp_boost_max_ns();
++	if (c->boost > bmax)
++		c->boost = bmax;
++
++	desired = max(c->boost, clasp_debt_ns(se));
++	desired = min(desired, c->budget);
++	headroom = bmax > c->credit_outstanding ?
++		bmax - c->credit_outstanding : 0;
++	credit = min(desired, headroom);
++	if (!allowed)
++		credit = 0;
++
++	if (credit) {
++		c->budget -= credit;
++		c->credit_outstanding += credit;
++	}
++
++	c->flags &= ~CLASP_F_PREEMPT;
++	if (credit && ((c->flags & CLASP_F_URGENT) ||
++		       c->lat_avg > target || c->lat_last > target ||
++		       now < c->hold_until))
++		c->flags |= CLASP_F_PREEMPT;
++
++	this_cpu_inc(clasp_stats.wakeups);
++	this_cpu_add(clasp_stats.boost_sum_ns, c->boost);
++	if (se->vlag < 0)
++		this_cpu_inc(clasp_stats.ineligible);
++	if (credit) {
++		this_cpu_inc(clasp_stats.boosted);
++		this_cpu_add(clasp_stats.credit_ns, credit);
++	}
++
++	return credit;
++}
++
++/*
++ * Called from set_next_entity() when the task is about to run.  Consumes
++ * the wake timestamp (closing the latency control loop), updates the AIMD
++ * boost, and starts a CPU-time episode if the task did not wake.
++ */
++void clasp_task_start(struct task_struct *p, struct sched_entity *se, u64 now)
++{
++	struct clasp_ctx *c = &p->clasp;
++	u32 target, bmax, step, lat = 0;
++
++	if (unlikely(!(c->flags & CLASP_F_VALID)))
++		return;
++
++	if (c->wait_start) {
++		u64 delta = now > c->wait_start ? now - c->wait_start : 0;
++
++		lat = clasp_ns_to_u32(delta);
++		c->lat_last = lat;
++		c->lat_avg = clasp_ewma(c->lat_avg, lat, CLASP_LAT_SHIFT);
++		c->wait_start = 0;
++
++		target = clasp_target_ns(c);
++		bmax = clasp_boost_max_ns();
++
++		if (lat > target || c->lat_avg > target) {
++			u64 hold;
++
++			step = max_t(u32, target, (u32)CLASP_MIN_STEP_NS);
++			c->boost = min(bmax, c->boost + step);
++			c->flags |= CLASP_F_URGENT;
++			this_cpu_inc(clasp_stats.misses);
++
++			hold = (u64)c->sleep_avg * 8;
++			if (hold < 10 * NSEC_PER_MSEC)
++				hold = 10 * NSEC_PER_MSEC;
++			if (hold > 50 * NSEC_PER_MSEC)
++				hold = 50 * NSEC_PER_MSEC;
++			c->hold_until = now + hold;
++		} else if (now > c->hold_until &&
++			   (u64)lat * 4 < (u64)target * 3 &&
++			   (u64)c->lat_avg * 4 < (u64)target * 3) {
++			c->boost -= c->boost >> 4;
++			if (c->boost < CLASP_MIN_STEP_NS)
++				c->boost = 0;
++		}
++
++		this_cpu_add(clasp_stats.lat_sum_ns, lat);
++		if (lat > this_cpu_read(clasp_stats.lat_max_ns))
++			this_cpu_write(clasp_stats.lat_max_ns, lat);
++	}
++
++	if (!(c->flags & CLASP_F_EPISODE)) {
++		c->episode_exec = se->sum_exec_runtime;
++		c->flags |= CLASP_F_EPISODE;
++	}
++
++	c->flags &= ~CLASP_F_PREEMPT;
++}
++
++/*
++ * Called on voluntary dequeue.  sum_exec_runtime has already been updated
++ * by update_curr(), so the delta from the wake point is the total CPU time
++ * the task consumed in this episode (including any preemptions).
++ */
++void clasp_task_sleep(struct task_struct *p, struct sched_entity *se, u64 now)
++{
++	struct clasp_ctx *c = &p->clasp;
++	u64 run_len;
++
++	if (unlikely(!(c->flags & CLASP_F_VALID)))
++		return;
++
++	if (c->flags & CLASP_F_EPISODE) {
++		run_len = se->sum_exec_runtime > c->episode_exec ?
++			se->sum_exec_runtime - c->episode_exec : 0;
++		c->run_avg = clasp_ewma(c->run_avg,
++					clasp_ns_to_u32(run_len),
++					CLASP_RUN_SHIFT);
++		c->flags &= ~CLASP_F_EPISODE;
++	}
++
++	/* A voluntary sleep is proof that this task can be a real sleeper. */
++	c->flags &= ~(CLASP_F_PREEMPT | CLASP_F_PROBATION);
++	c->wait_start = 0;
++	c->sleep_start = now ? now : 1;
++	c->flags |= CLASP_F_SLEEPING;
++
++	clasp_update_parent(p);
++}
++
++/*
++ * O(1) fork inheritance.  There are no ancestor or child-list walks:
++ *   - a thread inherits its process's current control state;
++ *   - a fork inherits the parent's own run/sleep profile plus the parent's
++ *     learned child profile (a one-word EWMA);
++ *   - a fork storm or a batch-lineage parent marks the child as heavy and
++ *     puts it on probation until its first voluntary sleep.
++ */
++void clasp_task_fork(struct task_struct *p, struct task_struct *parent)
++{
++	struct clasp_ctx *c = &p->clasp;
++	struct clasp_ctx *pc = &parent->clasp;
++	u32 bmax = clasp_boost_max_ns();
++	u32 cap = clasp_budget_cap_ns();
++	u64 now, delta, penalty;
++	bool thread = same_thread_group(p, parent);
++	bool heavy;
++
++	c->flags = CLASP_F_VALID;
++	c->wait_start = 0;
++	c->sleep_start = 0;
++	c->episode_exec = 0;
++	c->last_exec = p->se.sum_exec_runtime;
++	c->last_budget = 0;
++	c->last_fork = 0;
++	c->hold_until = 0;
++	c->lat_last = 0;
++	c->credit_outstanding = 0;
++	c->child_run_avg = 0;
++	c->fork_burst = 0;
++
++	if (thread) {
++		/* Threads of one process share its latency profile. */
++		c->run_avg = pc->run_avg;
++		c->sleep_avg = pc->sleep_avg;
++		c->lat_avg = pc->lat_avg;
++		c->boost = min(pc->boost, bmax);
++		c->budget = min(pc->budget, cap);
++		if (pc->flags & CLASP_F_URGENT)
++			c->flags |= CLASP_F_URGENT;
++		if (!c->budget)
++			c->budget = min(bmax / 2, cap);
++		return;
++	}
++
++	now = ktime_get_ns();
++	delta = now > pc->last_fork ? now - pc->last_fork : 0;
++	pc->last_fork = now;
++
++	if (delta && delta < CLASP_FORK_STORM_NS) {
++		if (pc->fork_burst < U8_MAX)
++			pc->fork_burst++;
++	} else {
++		pc->fork_burst = 0;
++	}
++
++	heavy = pc->fork_burst >= 3 ||
++		(pc->flags & CLASP_F_FORK_HEAVY);
++
++	c->run_avg = max3(pc->run_avg,
++			  READ_ONCE(pc->child_run_avg),
++			  c->run_avg);
++	/* Do not inherit a long shell/daemon sleep cadence. */
++	c->sleep_avg = 0;
++	c->lat_avg = heavy ? 0 : pc->lat_avg;
++	c->boost = heavy ? 0 : min(pc->boost, bmax);
++	c->budget = heavy ? 0 : min(pc->budget, bmax / 2);
++	if (!heavy && !c->budget)
++		c->budget = min(bmax / 2, cap);
++
++	if (heavy) {
++		penalty = (u64)sched_clasp_fork_penalty_us * NSEC_PER_USEC;
++		c->run_avg = max_t(u32, c->run_avg,
++				   clasp_ns_to_u32(penalty));
++		c->flags |= CLASP_F_FORK_HEAVY | CLASP_F_PROBATION;
++	}
++}
++
++void clasp_task_dead(struct task_struct *p)
++{
++	if (unlikely(!(p->clasp.flags & CLASP_F_VALID)))
++		return;
++
++	clasp_update_parent(p);
++}
++
++void clasp_note_preempt(bool eligible)
++{
++	this_cpu_inc(clasp_stats.preempt_try);
++	if (eligible)
++		this_cpu_inc(clasp_stats.preempt_ok);
++}
++
++void __init sched_init_clasp(void)
++{
++	pr_info("CLASP: Closed-Loop Adaptive Scheduling Policy\n");
++
++	memset(&init_task.clasp, 0, sizeof(init_task.clasp));
++	init_task.clasp.flags = CLASP_F_VALID;
++
++	if (!sched_clasp)
++		static_branch_disable(&sched_clasp_key);
++}
++
++#ifdef CONFIG_SYSCTL
++static int sched_clasp_update_handler(const struct ctl_table *table,
++		int write, void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret = proc_dou8vec_minmax(table, write, buffer, lenp, ppos);
++
++	if (ret || !write)
++		return ret;
++
++	if (sched_clasp)
++		static_branch_enable(&sched_clasp_key);
++	else
++		static_branch_disable(&sched_clasp_key);
++
++	return 0;
++}
++
++static struct ctl_table sched_clasp_sysctls[] = {
++	{
++		.procname	= "sched_clasp",
++		.data		= &sched_clasp,
++		.maxlen		= sizeof(u8),
++		.mode		= 0644,
++		.proc_handler	= sched_clasp_update_handler,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= SYSCTL_ONE,
++	},
++	{
++		.procname	= "sched_clasp_preempt",
++		.data		= &sched_clasp_preempt,
++		.maxlen		= sizeof(u8),
++		.mode		= 0644,
++		.proc_handler	= proc_dou8vec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= SYSCTL_ONE,
++	},
++	{
++		.procname	= "sched_clasp_target_min_us",
++		.data		= &sched_clasp_target_min_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++	{
++		.procname	= "sched_clasp_target_max_us",
++		.data		= &sched_clasp_target_max_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++	{
++		.procname	= "sched_clasp_target_shift",
++		.data		= &sched_clasp_target_shift,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_8,
++	},
++	{
++		.procname	= "sched_clasp_boost_max_us",
++		.data		= &sched_clasp_boost_max_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++	{
++		.procname	= "sched_clasp_budget_pct",
++		.data		= &sched_clasp_budget_pct,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_100,
++	},
++	{
++		.procname	= "sched_clasp_budget_cap_us",
++		.data		= &sched_clasp_budget_cap_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++	{
++		.procname	= "sched_clasp_duty_pct",
++		.data		= &sched_clasp_duty_pct,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_100,
++	},
++	{
++		.procname	= "sched_clasp_min_sleep_us",
++		.data		= &sched_clasp_min_sleep_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++	{
++		.procname	= "sched_clasp_fork_penalty_us",
++		.data		= &sched_clasp_fork_penalty_us,
++		.maxlen		= sizeof(u32),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec_minmax,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= &maxval_1s_us,
++	},
++};
++
++static int __init sched_clasp_sysctl_init(void)
++{
++	register_sysctl_init("kernel", sched_clasp_sysctls);
++	return 0;
++}
++late_initcall(sched_clasp_sysctl_init);
++#endif /* CONFIG_SYSCTL */
++
++#ifdef CONFIG_DEBUG_FS
++static int clasp_stats_show(struct seq_file *m, void *v)
++{
++	u64 wakeups = 0, boosted = 0, misses = 0, credit_ns = 0;
++	u64 lat_sum_ns = 0, lat_max_ns = 0, boost_sum_ns = 0;
++	u64 preempt_try = 0, preempt_ok = 0, ineligible = 0;
++	int cpu;
++
++	seq_puts(m, "cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible\n");
++
++	for_each_possible_cpu(cpu) {
++		struct clasp_pcpu_stats *s = per_cpu_ptr(&clasp_stats, cpu);
++
++		seq_printf(m, "%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
++			   cpu,
++			   (unsigned long long)s->wakeups,
++			   (unsigned long long)s->boosted,
++			   (unsigned long long)s->misses,
++			   (unsigned long long)s->credit_ns,
++			   (unsigned long long)s->lat_sum_ns,
++			   (unsigned long long)s->lat_max_ns,
++			   (unsigned long long)s->boost_sum_ns,
++			   (unsigned long long)s->preempt_try,
++			   (unsigned long long)s->preempt_ok,
++			   (unsigned long long)s->ineligible);
++
++		wakeups += s->wakeups;
++		boosted += s->boosted;
++		misses += s->misses;
++		credit_ns += s->credit_ns;
++		lat_sum_ns += s->lat_sum_ns;
++		lat_max_ns = max(lat_max_ns, s->lat_max_ns);
++		boost_sum_ns += s->boost_sum_ns;
++		preempt_try += s->preempt_try;
++		preempt_ok += s->preempt_ok;
++		ineligible += s->ineligible;
++	}
++
++	seq_printf(m, "total %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
++		   (unsigned long long)wakeups,
++		   (unsigned long long)boosted,
++		   (unsigned long long)misses,
++		   (unsigned long long)credit_ns,
++		   (unsigned long long)lat_sum_ns,
++		   (unsigned long long)lat_max_ns,
++		   (unsigned long long)boost_sum_ns,
++		   (unsigned long long)preempt_try,
++		   (unsigned long long)preempt_ok,
++		   (unsigned long long)ineligible);
++
++	return 0;
++}
++
++static int clasp_stats_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, clasp_stats_show, NULL);
++}
++
++static const struct file_operations clasp_stats_fops = {
++	.open		= clasp_stats_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
++static int __init clasp_debugfs_init(void)
++{
++	debugfs_create_file("sched_clasp", 0444, NULL, NULL,
++			    &clasp_stats_fops);
++	return 0;
++}
++late_initcall(clasp_debugfs_init);
++#endif /* CONFIG_DEBUG_FS */
++
++#endif /* CONFIG_SCHED_CLASP */
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 1754d9f..cab1e2d 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -34,6 +34,9 @@
+ #include <linux/sched/hotplug.h>
+ #include <linux/sched/init.h>
+ #include <linux/sched/isolation.h>
++#ifdef CONFIG_SCHED_CLASP
++#include <linux/sched/clasp.h>
++#endif
+ #include <linux/sched/loadavg.h>
+ #include <linux/sched/mm.h>
+ #include <linux/sched/nohz.h>
+@@ -8993,6 +8996,10 @@ void __init sched_init(void)
+ 	BUG_ON(!sched_class_above(&ext_sched_class, &idle_sched_class));
+ #endif
+ 
++#ifdef CONFIG_SCHED_CLASP
++	sched_init_clasp();
++#endif
++
+ 	wait_bit_init();
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 0f23644..97eef44 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -61,6 +61,11 @@
+ #include "stats.h"
+ #include "autogroup.h"
+ 
++#ifdef CONFIG_SCHED_CLASP
++#include <linux/sched/clasp.h>
++#include <linux/sched/clock.h>
++#endif
++
+ /*
+  * The initial- and re-scaling of tunables is configurable
+  *
+@@ -6502,6 +6507,25 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
+ 			update_zero = true;
+ 	}
+ 
++	/*
++	 * CLASP: a waking task may arrive with a bounded amount of virtual-time
++	 * credit earned from measured latency misses.  Adding it to @lag here
++	 * places the entity earlier in virtual time; the deadline computed
++	 * below shifts with it, so the task's requested slice is unchanged.
++	 */
++#ifdef CONFIG_SCHED_CLASP
++	if (entity_is_task(se) && se != cfs_rq->curr &&
++	    ((flags & ENQUEUE_WAKEUP) || se->sched_delayed) &&
++	    static_branch_likely(&sched_clasp_key)) {
++		u32 clasp_credit;
++
++		clasp_credit = clasp_prepare_wake(task_of(se), se,
++						  sched_clock());
++		if (clasp_credit)
++			lag += calc_delta_fair(clasp_credit, se);
++	}
++#endif
++
+ 	se->vruntime = vruntime - lag;
+ 
+ 	if (update_zero)
+@@ -6703,6 +6727,11 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
+ static void
+ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
+ {
++#ifdef CONFIG_SCHED_CLASP
++	if (entity_is_task(se) && static_branch_likely(&sched_clasp_key))
++		clasp_task_start(task_of(se), se, sched_clock());
++#endif
++
+ 	/* 'current' is not kept within the tree. */
+ 	if (se->on_rq) {
+ 		/*
+@@ -8356,6 +8385,13 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+ 	update_curr_eevdf(cfs_rq);
+ 	update_entity_lag(cfs_rq, se);
+ 
++#ifdef CONFIG_SCHED_CLASP
++	if (entity_is_task(se) && (flags & DEQUEUE_SLEEP) &&
++	    !(flags & (DEQUEUE_DELAYED | DEQUEUE_THROTTLE | DEQUEUE_SPECIAL)) &&
++	    static_branch_likely(&sched_clasp_key))
++		clasp_task_sleep(task_of(se), se, sched_clock());
++#endif
++
+ 	if (flags & DEQUEUE_DELAYED) {
+ 		WARN_ON_ONCE(!se->sched_delayed);
+ 	} else {
+@@ -10023,6 +10059,12 @@ static void migrate_task_rq_fair(struct task_struct *p, int new_cpu)
+ static void task_dead_fair(struct task_struct *p)
+ {
+ 	struct sched_entity *se = &p->se;
++
++#ifdef CONFIG_SCHED_CLASP
++	if (static_branch_likely(&sched_clasp_key))
++		clasp_task_dead(p);
++#endif
++
+ 	remove_entity_load_avg(se);
+ }
+ 
+@@ -10189,6 +10231,31 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
+ 
+ 	update_curr_fair(rq);
+ 
++#ifdef CONFIG_SCHED_CLASP
++	/*
++	 * A waker that has measurably missed its latency target may override
++	 * current's slice protection.  The credit is rate-limited by the token
++	 * bucket, and the flag is only set after an observed miss, so this is
++	 * not a general weight-based preemption bypass.
++	 */
++	if (static_branch_likely(&sched_clasp_key) &&
++	    sched_clasp_preempt &&
++	    (p->clasp.flags & CLASP_F_PREEMPT) &&
++	    pse->on_rq && !pse->sched_delayed) {
++		bool pse_eligible = entity_eligible(cfs_rq, pse);
++
++		clasp_note_preempt(pse_eligible);
++		if (pse_eligible &&
++		    (!entity_eligible(cfs_rq, se) || entity_before(pse, se))) {
++			p->clasp.flags &= ~CLASP_F_PREEMPT;
++			cancel_protect_slice(se);
++			set_next_buddy(cfs_rq, pse);
++			resched_curr(rq);
++			return;
++		}
++	}
++#endif
++
+ 	if (cse_is_idle != pse_is_idle)
+ 		goto update;
+ 
+@@ -15378,6 +15445,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
+ static void task_fork_fair(struct task_struct *p)
+ {
+ 	set_task_max_allowed_capacity(p);
++#ifdef CONFIG_SCHED_CLASP
++	if (static_branch_likely(&sched_clasp_key))
++		clasp_task_fork(p, current);
++#endif
+ }
+ 
+ /*
+-- 
+2.56.0
+
