@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#52606d"/>
+    </marker>
+    <style>
+      .title { font: 700 38px 'DejaVu Sans', sans-serif; fill: #17202a; }
+      .subtitle { font: 22px 'DejaVu Sans', sans-serif; fill: #52606d; }
+      .heading { font: 700 20px 'DejaVu Sans', sans-serif; fill: #17202a; }
+      .boxhead { font: 700 18px 'DejaVu Sans', sans-serif; fill: #17202a; }
+      .text { font: 16px 'DejaVu Sans', sans-serif; fill: #24313d; }
+      .small { font: 14px 'DejaVu Sans', sans-serif; fill: #52606d; }
+      .mono { font: 15px 'DejaVu Sans Mono', monospace; fill: #24313d; }
+      .box { stroke-width: 2; rx: 12; }
+      .arrow { fill: none; stroke: #52606d; stroke-width: 2.5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <text x="800" y="54" text-anchor="middle" class="title">CLASP: Closed-Loop Adaptive Scheduling Policy</text>
+  <text x="800" y="88" text-anchor="middle" class="subtitle">Linux EEVDF extension targeting measured wake-to-run latency · v0.2.0</text>
+
+  <text x="215" y="137" text-anchor="middle" class="heading">TASK STATE &amp; SIGNALS</text>
+  <text x="605" y="137" text-anchor="middle" class="heading">TARGET &amp; CLOSED LOOP</text>
+  <text x="995" y="137" text-anchor="middle" class="heading">GATES &amp; BUDGETING</text>
+  <text x="1385" y="137" text-anchor="middle" class="heading">EEVDF INTEGRATION</text>
+
+  <rect x="40" y="158" width="350" height="350" class="box" fill="#eaf4ff" stroke="#77a9d8"/>
+  <text x="60" y="190" class="boxhead">Per-task context · 96 B on x86_64</text>
+  <text x="60" y="226" class="mono">sleep_avg, run_avg</text>
+  <text x="60" y="250" class="small">cadence and duty-cycle metrics</text>
+  <text x="60" y="286" class="mono">lat_avg, lat_last</text>
+  <text x="60" y="310" class="small">observed wake-to-run latency</text>
+  <text x="60" y="346" class="mono">boost</text>
+  <text x="60" y="370" class="small">desired virtual-time credit</text>
+  <text x="60" y="406" class="mono">budget, credit_outstanding</text>
+  <text x="60" y="430" class="small">token bucket and runtime charging</text>
+  <text x="60" y="466" class="mono">hold_until, child_run_avg</text>
+  <text x="60" y="490" class="small">miss hold and fork-lineage state</text>
+
+  <rect x="40" y="532" width="350" height="235" class="box" fill="#f2f5f7" stroke="#9aa8b3"/>
+  <text x="60" y="564" class="boxhead">O(1) fork handling</text>
+  <text x="60" y="598" class="text">• Threads inherit creator's profile</text>
+  <text x="60" y="628" class="text">• Processes inherit parent/child EWMA</text>
+  <text x="60" y="658" class="text">• Fork state initializes even when off</text>
+  <text x="60" y="688" class="text">• Rapid forkers mark probation</text>
+  <text x="60" y="718" class="text">• Voluntary sleep ends probation</text>
+  <text x="60" y="748" class="small">No child-list scans or ancestor walks</text>
+
+  <rect x="430" y="158" width="350" height="110" class="box" fill="#eff9ed" stroke="#8dbb7f"/>
+  <text x="605" y="190" text-anchor="middle" class="boxhead">Latency target</text>
+  <text x="605" y="224" text-anchor="middle" class="mono">clamp(sleep_avg / 4,</text>
+  <text x="605" y="248" text-anchor="middle" class="mono">250 µs, 8 ms)</text>
+
+  <path d="M390 330 H410 V213 H430" class="arrow"/>
+  <path d="M605 268 V300" class="arrow"/>
+  <rect x="465" y="302" width="280" height="92" class="box" fill="#ffffff" stroke="#8dbb7f"/>
+  <text x="605" y="340" text-anchor="middle" class="boxhead">Observed latency &gt; target?</text>
+  <text x="605" y="372" text-anchor="middle" class="small">measured with sched_clock()</text>
+
+  <path d="M520 394 V425" class="arrow"/>
+  <text x="535" y="417" class="small">YES</text>
+  <rect x="430" y="427" width="350" height="158" class="box" fill="#fff0df" stroke="#e2a15f"/>
+  <text x="450" y="459" class="boxhead">Miss: additive increase + hold</text>
+  <text x="450" y="493" class="text">• Increase boost and mark URGENT</text>
+  <text x="450" y="523" class="text">• Hold: 8 × sleep_avg, 10–50 ms</text>
+  <text x="450" y="553" class="text">• Remember urgency while eligible</text>
+
+  <path d="M690 394 H800 V688 H780" class="arrow"/>
+  <text x="700" y="417" class="small">NO</text>
+  <rect x="430" y="609" width="350" height="158" class="box" fill="#f2f5f7" stroke="#9aa8b3"/>
+  <text x="450" y="641" class="boxhead">Recovery after hold</text>
+  <text x="450" y="675" class="text">• Comfortably early samples decay 1/16</text>
+  <text x="450" y="705" class="small">• Target/2 credit floor remains while eligible</text>
+  <text x="450" y="735" class="text">• Urgency prevents tail-latency cycling</text>
+
+  <path d="M780 348 H800 V213 H820" class="arrow"/>
+  <rect x="820" y="158" width="350" height="238" class="box" fill="#eff9ed" stroke="#8dbb7f"/>
+  <text x="840" y="190" class="boxhead">Eligibility gates</text>
+  <text x="840" y="226" class="text">• Ordinary SCHED_NORMAL tasks</text>
+  <text x="840" y="256" class="text">• Not fork-heavy or probationary</text>
+  <text x="840" y="286" class="text">• Duty cycle below 80%</text>
+  <text x="840" y="316" class="text">• Sleep cadence at least 100 µs</text>
+  <text x="840" y="350" class="small">Ineligible wakes retain latency samples</text>
+  <text x="840" y="374" class="small">but skip negative-lag and credit work</text>
+
+  <rect x="820" y="427" width="350" height="210" class="box" fill="#f2f5f7" stroke="#9aa8b3"/>
+  <text x="840" y="459" class="boxhead">Token bucket</text>
+  <text x="840" y="493" class="text">• Refill: 100% of elapsed wall time</text>
+  <text x="840" y="523" class="text">• Default capacity: 8 ms</text>
+  <text x="840" y="553" class="text">• Actual runtime consumes credit</text>
+  <text x="840" y="583" class="text">• Negative-lag repair uses same budget</text>
+  <text x="840" y="613" class="small">Default 100% refill avoids 64-bit division</text>
+  <path d="M780 505 H820" class="arrow"/>
+
+  <path d="M1170 278 H1190 V213 H1210" class="arrow"/>
+  <rect x="1210" y="158" width="350" height="205" class="box" fill="#eaf4ff" stroke="#77a9d8"/>
+  <text x="1230" y="190" class="boxhead">Virtual-time credit · place_entity()</text>
+  <text x="1230" y="228" class="mono">se-&gt;vruntime = avg_vruntime -</text>
+  <text x="1230" y="254" class="mono">                 (vlag + credit)</text>
+  <text x="1230" y="294" class="text">Earlier EEVDF position and deadline</text>
+  <text x="1230" y="324" class="small">No weight, PELT, or requested-slice changes</text>
+
+  <path d="M1170 522 H1190 V417 H1385 V363" class="arrow"/>
+  <rect x="1210" y="397" width="350" height="256" class="box" fill="#eaf4ff" stroke="#77a9d8"/>
+  <text x="1230" y="429" class="boxhead">Wakeup preemption</text>
+  <text x="1230" y="463" class="text">(URGENT or recent miss) + credit</text>
+  <text x="1230" y="489" class="text">+ eligibility gates</text>
+  <text x="1230" y="519" class="text">Require EEVDF eligibility</text>
+  <text x="1230" y="545" class="text">and deadline order</text>
+  <text x="1230" y="575" class="mono">cancel_protect_slice()</text>
+  <text x="1230" y="603" class="mono">set_next_buddy() + resched_curr()</text>
+  <text x="1230" y="633" class="small">sched_clasp_preempt can disable this path</text>
+
+  <rect x="1040" y="682" width="520" height="85" class="box" fill="#fff9e8" stroke="#d5b65c"/>
+  <text x="1300" y="717" text-anchor="middle" class="boxhead">Closed-loop feedback</text>
+  <text x="1300" y="747" text-anchor="middle" class="text">Actual wake-to-run latency updates the next boost decision</text>
+  <path d="M1300 653 V682" class="arrow"/>
+  <path d="M1040 725 H1010 V795 H390 V767" class="arrow"/>
+
+  <text x="800" y="838" text-anchor="middle" class="small">Static keys bypass wake/sleep scheduling hooks when disabled; O(1) fork initialization remains.</text>
+  <text x="800" y="866" text-anchor="middle" class="small">All boosts and forced preemptions are bounded by eligibility and the per-task token bucket.</text>
+</svg>

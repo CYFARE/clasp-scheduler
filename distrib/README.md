@@ -32,7 +32,8 @@ No arguments are required.  Optional flags:
 8. When KVM is available, builds a `bzImage`, boots it with the repository's
    initramfs, runs the quick CLASP smoke test, and requires:
    - `CONTROLS clasp=1`
-   - at least one `RESULT` line
+   - both CLASP-off and CLASP-on 16-hog IPC `RESULT` lines
+   - no benchmark `ERROR` lines
    - `QUICK_DONE`
 9. Installs the validated patch as:
 
@@ -47,7 +48,7 @@ after the new version has passed all validation.
 
 Host tools: `git`, `patch`, `tar`, `make`, and `gcc` or `clang`.  The KVM
 smoke additionally needs `/dev/kvm`, `qemu-system-x86_64`, `gcc` with static
-libc support, `cpio`, `gzip`, `tee`, and `timeout`.
+libc support, `cpio`, `grep`, `gzip`, `tee`, and `timeout`.
 
 The script checks for at least 8 GiB free in `.build/distrib/` and fails early
 if the space is not available.

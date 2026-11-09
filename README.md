@@ -7,8 +7,8 @@
 **Latency-aware scheduling for Linux EEVDF.**  
 *Less guessing. More measuring. Better responsiveness under load.*
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
-![Linux](https://img.shields.io/badge/Linux-7.3.1-FCC624?logo=linux&logoColor=black)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Linux](https://img.shields.io/badge/Linux-7.3.3-FCC624?logo=linux&logoColor=black)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 ![License](https://img.shields.io/badge/license-GPL--2.0-green)
 
@@ -27,43 +27,43 @@ Instead of guessing whether a task is interactive from burst-time heuristics, CL
 
 > **Did this task actually run on time?**
 
-If not, CLASP grants a bounded amount of virtual-time credit, moving the task earlier in EEVDF scheduling order. As latency recovers, the boost gradually decays.
+If not, CLASP grants a bounded amount of virtual-time credit, moving the task earlier in EEVDF scheduling order. As latency recovers, boost decays above a bounded credit floor.
 
 > [!WARNING]
-> CLASP's reference integration targets **upstream Linux 7.3.1**. The
+> CLASP's reference integration targets **upstream Linux**. The
 > `distrib/run.py` tool rebases it to the latest stable kernel. It is not yet
-> production-ready. Current results come from an initial single-VM KVM
-> benchmark suite.
+> production-ready. Current results come from a single-VM KVM benchmark suite.
 
 ## Why CLASP?
 
-- 🎯 **Closed-loop control** — reacts to observed latency, not assumed task behavior.
-- 🚫 **No per-tick accounting** — keeps the scheduler hot path lightweight.
+- 🎯 **Closed-loop control** - reacts to observed latency, not assumed task behavior.
+- 🚫 **No per-tick accounting** - keeps the scheduler hot path lightweight.
 - ⚖️ **No weight or PELT changes** — leaves `se->load.weight`, PELT averages, and hierarchical load untouched.
-- 🪙 **Explicitly bounded boost** — a per-task token bucket limits extra CPU time.
-- 🌱 **O(1) fork handling** — no child-list scans or ancestor walks.
-- ⚡ **Zero overhead when disabled** — runtime control uses a static key.
+- 🪙 **Explicitly bounded boost** - a per-task token bucket limits extra CPU time.
+- 🌱 **O(1) fork handling** - no child-list scans or ancestor walks.
+- ⚡ **Static-key bypass when disabled** — wake/sleep hooks are skipped; O(1) fork initialization remains.
 
 ### Headline result
 
-With **16 CPU hogs** competing with the probe, IPC wakeup p99 dropped from **1.59 ms** on CachyOS and **20.0 µs** on BORE to **13.9 µs** on CLASP.
+With **16 CPU hogs** competing with the probe, two same-kernel CLASP 0.2.0 A/B runs reduced IPC wakeup p99 from **2778.9 µs to 12.6 µs** and **2799.4 µs to 16.8 µs**. The phase order was reversed for the second run.
 
-| Kernel | p90 | p99 | Mean |
-|---|---:|---:|---:|
-| CachyOS 7.3.1 default | 1083.0 µs | 1590.6 µs | 191.4 µs |
-| BORE 7.0.1 | 13.1 µs | 20.0 µs | 32.7 µs |
-| **CLASP** | **11.7 µs** | **13.9 µs** | **24.4 µs** |
+| Run | Off p90 | Off p99 | On p90 | On p99 |
+|---|---:|---:|---:|---:|
+| A: off → on | 650.9 µs | 2778.9 µs | **10.2 µs** | **12.6 µs** |
+| B: on → off | 2786.6 µs | 2799.4 µs | **11.8 µs** | **16.8 µs** |
 
-These are preliminary measurements; see [Initial results](#initial-results) for context and caveats.
+A separate CachyOS 7.3.1 run measured 1584.6 µs p90 and 1600.3 µs p99. These are preliminary single-host measurements; see [Initial results](#initial-results) for throughput, outliers, and caveats.
 
 ## How it works
+
+![CLASP task state, control loop, guardrails, and EEVDF integration](assets/CLASP-Diagram.webp)
 
 ```text
 Sleep cadence ──► Latency target
                        │
 Wake-to-run sample ────┼──► Target missed?
                        │          │
-                       │          ├─ No ──► Hold, then decay boost
+                       │          ├─ No ──► Hold, then decay above floor
                        │          │
                        │          └─ Yes ─► Increase boost + mark URGENT
                        │                     │
@@ -78,7 +78,7 @@ Wake-to-run sample ────┼──► Target missed?
 
 ### 1. Learn the task’s cadence
 
-Each task keeps a small, approximately **92-byte** context containing run, sleep, latency, boost, budget, and fork-lineage state.
+Each task keeps a **96-byte context on x86_64** containing run, sleep, latency, boost, budget, and fork-lineage state.
 
 Its latency target comes from voluntary sleep duration:
 
@@ -108,9 +108,9 @@ When observed latency exceeds the target:
 - its boost increases additively;
 - a hold window of `8 × sleep_avg`, clamped to **10–50 ms**, begins.
 
-During the hold window, on-time samples do not reduce the boost. This prevents one tail-latency miss from being forgotten before the next one arrives. Afterward, comfortably early samples decay the boost by **1/16**.
+During the hold window, on-time samples do not reduce the boost. This prevents one tail-latency miss from being forgotten before the next one arrives. Afterward, comfortably early samples decay the boost by **1/16**, subject to a `target / 2` credit floor while the task remains eligible.
 
-An urgent task can force preemption only while it has credit, passes the eligibility gates, and satisfies EEVDF’s eligibility and deadline checks.
+Urgency is remembered rather than cleared on the first on-time sample. This is intentional: a recent-miss-only variant allowed the one-slice tail to return in KVM testing. An urgent task can force preemption only while it has credit, passes the eligibility gates, and satisfies EEVDF’s eligibility and deadline checks.
 
 ### 4. Grant credit, not permanent priority
 
@@ -124,7 +124,8 @@ This moves the waking task—and its virtual deadline—earlier without changing
 
 A per-task token bucket bounds the grant:
 
-- default refill: **100% of elapsed wall time**;
+- default refill: **100% of elapsed wall time**, using a division-free fast path;
+- other refill percentages retain integer division;
 - default capacity: **8 ms**;
 - outstanding credit is consumed by actual runtime;
 - negative-lag repair is charged to the same budget.
@@ -137,13 +138,13 @@ Credit is limited to ordinary `SCHED_NORMAL` tasks that:
 - have a duty cycle below **80%**;
 - sleep for at least **100 µs** per cadence.
 
-The cadence gate avoids forcing preemption for sub-100 µs IPC ping-pong, where normal EEVDF wakeup preemption already works and extra intervention adds overhead.
+The cadence gate avoids forcing preemption for sub-100 µs IPC ping-pong, where normal EEVDF wakeup preemption already works and extra intervention adds overhead. Ineligible wakes still update cadence, budget, and latency samples, but skip negative-lag conversion and credit-grant work.
 
-Fork handling is entirely O(1): threads inherit the process profile, processes inherit compact parent/child EWMA state, and rapid forkers produce probationary children. A voluntary sleep ends probation.
+Fork handling is entirely O(1): threads inherit the creating thread's latency profile, processes inherit compact parent/child EWMA state, and rapid forkers produce probationary children. A voluntary sleep ends probation and clears the fork-heavy mark. Fork state is initialized even while scheduling hooks are disabled, preventing children from inheriting stale timestamps or duplicated budget.
 
 ## CLASP vs. BORE
 
-| | BORE 7.x | CLASP 0.1.0 |
+| | BORE 7.x | CLASP 0.2.0 |
 |---|---|---|
 | Primary signal | Burst time since sleep/yield | Actual wake-to-run latency |
 | Control model | Open-loop burst mapping | Closed-loop AIMD with hold |
@@ -158,12 +159,12 @@ Fork handling is entirely O(1): threads inherit the process profile, processes i
 
 CLASP is distributed as a standard patch for a pristine **Linux Kernel** tree.
 
-Example for Linux 7.3.1 patch:
+Example for the Linux 7.3.3 patch:
 
 ```sh
-cd linux-7.3.1
+cd linux-7.3.3
 
-patch -p1 < /path/to/patches/stable/0001-linux7.3.1-clasp-0.1.0.patch
+patch -p1 < /path/to/patches/stable/0001-linux7.3.3-clasp-0.2.0.patch
 
 make olddefconfig        # CONFIG_SCHED_CLASP defaults to y
 grep CONFIG_SCHED_CLASP .config
@@ -264,47 +265,57 @@ Results are written to:
 .build/results/<tag>.log
 ```
 
-The harness automatically runs CLASP on/off, BORE on/off, or baseline phases depending on available sysctls. For a short smoke test, add this to the kernel command line:
+The harness automatically runs CLASP on/off, BORE on/off, or baseline phases depending on available sysctls. Add `clasp.reverse=1` to the kernel command line for a second run with the CLASP phases reversed.
 
-```text
-clasp.quick=1
-```
+For a short smoke test, use `clasp.quick=1`; this deliberately applies more aggressive tunables and is not a default-configuration benchmark. For a shorter default-tunables tuning run, use `clasp.tune=1` to test 16-hog IPC and eight-pair pipe off/on.
 
-Measurements cover IPC and timer wake latency, pipe throughput, CPU throughput, fork throughput, and fork-storm latency.
+Measurements cover IPC and timer wake latency, pipe throughput, CPU throughput, fork throughput, and fork-storm latency. Runs require a completion marker and reject benchmark or control-write errors. See [`tests/README.md`](tests/README.md) for interpretation and caveats.
+
+## Harness validation
+
+The original harness had two material reporting defects: p999 used a percent rather than per-mille index and therefore returned the maximum, and the compiler removed the unused CPU workload. The old p999 values and CPU-throughput percentages are not valid performance evidence. The corrected harness preserves the CPU computation, calculates p999 separately from max, checks affinity and control writes, uses atomic IPC timestamps, and supports reversed A/B phase order.
+
+The earlier single-run CachyOS and BORE comparisons were not reproduced on those same kernel builds and are not used as evidence below. Same-kernel CLASP off/on results are the primary comparison.
+
+Aggressive quick mode is a functional smoke test, not performance evidence: one clean 0.2.0 smoke returned 2798.8 µs IPC p99 and a follow-up recheck returned 16.8 µs. The full default-configuration A/B runs below are the performance baseline.
 
 ## Initial results
 
-**Environment:** CachyOS host, Intel CPU, QEMU/KVM with 8 vCPUs and 4 GiB guest RAM, `HZ=1000`, `PREEMPT_DYNAMIC=y`, clang 23.1.4 with ThinLTO.
+**Environment:** CachyOS host with an Intel CPU, QEMU/KVM with 8 vCPUs and 4 GiB guest RAM, upstream Linux 7.3.3 with the distribution defconfig options, `HZ=1000`, `PREEMPT_DYNAMIC=y` with full preemption, clang/LLD 23.1.4, and `CONFIG_LTO_NONE=y`. QEMU was pinned to host CPUs `0,2,4,...,14`; the separate libvirt guest was left running and was not used for measurements.
 
-Each latency cell represents one 4-second run with 4,000 samples. The probe uses a 1 ms IPC cadence.
+Each latency result is one 4-second run with 4,000 samples at a 1 ms IPC cadence. CLASP 0.2.0 was tested twice: control-then-enabled and enabled-then-control. Both runs are reported rather than pooling percentiles or selecting the best run.
 
 ### IPC wakeup latency under 16 hogs
 
+![Two CLASP 0.2.0 A/B IPC latency runs on a logarithmic scale](assets/CLASP-Results.webp)
+
 | Kernel / phase | p50 | p90 | p99 | p999 | Mean |
 |---|---:|---:|---:|---:|---:|
-| Upstream 7.3.1 baseline | 9.7 µs | 2710.1 µs | 2800.3 µs | 18492.3 µs | 712.0 µs |
-| CachyOS 7.3.1 default | 9.7 µs | 1083.0 µs | 1590.6 µs | 10409.2 µs | 191.4 µs |
-| BORE 7.0.1 | 10.8 µs | 13.1 µs | 20.0 µs | 16046.6 µs | 32.7 µs |
-| CLASP kernel, disabled | 7.7 µs | 2783.5 µs | 2802.5 µs | 19114.9 µs | 1048.8 µs |
-| **CLASP, enabled** | **6.9 µs** | **11.7 µs** | **13.9 µs** | 20371.5 µs | **24.4 µs** |
+| A: CLASP off | 9.4 µs | 650.9 µs | 2778.9 µs | 2799.5 µs | 232.1 µs |
+| **A: CLASP on** | **7.3 µs** | **10.2 µs** | **12.6 µs** | **22.9 µs** | **13.7 µs** |
+| **B: CLASP on** | **9.8 µs** | **11.8 µs** | **16.8 µs** | **27.6 µs** | **10.2 µs** |
+| B: CLASP off | 6.8 µs | 2786.6 µs | 2799.4 µs | 2806.6 µs | 900.2 µs |
+| CachyOS 7.3.1 baseline | 10.2 µs | 1584.6 µs | 1600.3 µs | 1608.0 µs | 428.5 µs |
 
-The important change is the **tail**: p90 and p99 fall from roughly one EEVDF base slice—about 2.8 ms—to approximately 12–14 µs.
-
-CLASP leads BORE on p50, p90, p99, and mean in this run. BORE records the better rare p999 sample. At lower load, BORE remains slightly faster at four hogs, while CLASP leads at one and sixteen hogs.
+The consistent change is the **tail**: enabled p99 is 12.6–16.8 µs, versus approximately 2.8 ms with CLASP off. The separate CachyOS result is an external reference, not an identical-config comparison.
 
 > [!IMPORTANT]
-> Rare 10–20 ms p999 outliers remain. They correlate with host/vCPU scheduling and fork-storm tails and are **not** claimed as scheduler improvements.
+> Maximum-latency outliers remain: 20.9 ms in run A and 1.38 ms in run B. Their host-versus-guest causes were not isolated, so they are not claimed as scheduler improvements or regressions.
+
+A recent-miss-only preemption experiment was rejected. It retained a 12.2 µs p90 but allowed p99 to return to 2776.6 µs. This result is why 0.2.0 keeps sticky urgency while the task remains eligible.
 
 ### Relative throughput cost
 
-Absolute throughput is not directly comparable across these kernels because BORE uses its own slice configuration and CachyOS carries an additional patchset. The cleaner comparison is each scheduler against its own disabled phase:
+Each cell compares CLASP on against its own off phase in that run. Negative values mean lower throughput.
 
-| Scheduler, on vs. off | Pipe 1 | Pipe 4 | Pipe 8 | CPU | Fork |
+| Version / run | Pipe 1 | Pipe 4 | Pipe 8 | CPU | Fork |
 |---|---:|---:|---:|---:|---:|
-| BORE | +2.1% | −4.7% | −3.5% | −2.0% | +0.7% |
-| CLASP | +0.3% | −4.3% | −8.0% | −0.8% | 0% |
+| 0.1.0 A | −8.1% | −3.6% | −8.2% | −0.3% | 0% |
+| 0.1.0 B | −6.2% | −5.4% | −6.1% | −0.0% | 0% |
+| **0.2.0 A** | **−16.6%** | **−8.6%** | **−9.6%** | **−1.6%** | **0%** |
+| **0.2.0 B** | **−6.5%** | **−8.0%** | **−2.2%** | **+1.8%** | **−0.1%** |
 
-Both schedulers pay a few percent on scheduler-heavy ping-pong. CLASP shows lower CPU and fork overhead; BORE shows lower eight-pair pipe overhead.
+The division-free refill and ineligible-wake early return reduce arithmetic without changing policy, but these measurements do **not** establish a throughput improvement. Pipe overhead remains and varies substantially with phase order. The pipe test also includes shared atomic-counter contention, and fork rates are rounded to integer forks/s. More repeated, less contended throughput tests are needed before making a performance claim.
 
 ## Before production use
 

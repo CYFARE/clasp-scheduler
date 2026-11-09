@@ -255,6 +255,13 @@ def affected_files(patch: Path) -> list[str]:
     return sorted(paths)
 
 
+def clasp_version_key(version: str):
+    return tuple(
+        (1, int(part)) if part.isdigit() else (0, part)
+        for part in re.split(r"(\d+)", version)
+    )
+
+
 def find_reference(latest: str):
     latest_key = kernel_key(latest)
     candidates = []
@@ -264,16 +271,23 @@ def find_reference(latest: str):
             continue
         key = kernel_key(match.group("kernel"))
         if key <= latest_key:
+            clasp_version = match.group("clasp")
             candidates.append(
-                (key, patch, match.group("kernel"), match.group("clasp"))
+                (
+                    key,
+                    clasp_version_key(clasp_version),
+                    patch,
+                    match.group("kernel"),
+                    clasp_version,
+                )
             )
     if not candidates:
         raise DistError(
             f"no CLASP patch for a kernel <= {latest} in {PATCH_DIR}; "
             "add a base patch that can be rebased"
         )
-    _, patch, reference_kernel, clasp_version = max(
-        candidates, key=lambda item: item[0]
+    _, _, patch, reference_kernel, clasp_version = max(
+        candidates, key=lambda item: (item[0], item[1])
     )
     return patch, reference_kernel, clasp_version
 
@@ -417,8 +431,12 @@ def generate_patch(
             patchgen,
             "commit",
             "-q",
+            "--signoff",
             "-m",
             f"linux{version}-clasp-{clasp_version}",
+            "-m",
+            "Add bounded wake-to-run latency feedback to EEVDF with "
+            "per-task credit, eligibility guardrails, and O(1) fork handling.",
         )
     )
 
@@ -582,6 +600,7 @@ def kvm_status():
         "qemu-system-x86_64",
         "gcc",
         "cpio",
+        "grep",
         "gzip",
         "tee",
         "timeout",
@@ -612,18 +631,30 @@ def kvm_smoke(image: Path, version: str, logfile: Path) -> None:
     if proc.returncode != 0:
         print(tail(logfile), file=sys.stderr)
         raise DistError("QEMU/KVM smoke test failed")
-    if "BENCH_DONE" not in text and "QUICK_DONE" not in text:
+    if "QUICK_DONE" not in text:
         print(tail(logfile), file=sys.stderr)
-        raise DistError("QEMU/KVM smoke test did not complete")
-    if "RESULT" not in text:
-        print(tail(logfile), file=sys.stderr)
-        raise DistError("QEMU/KVM smoke test produced no benchmark results")
+        raise DistError("QEMU/KVM quick smoke test did not complete")
     if "CONTROLS clasp=1" not in text:
         print(tail(logfile), file=sys.stderr)
         raise DistError(
             "the booted kernel did not expose the CLASP control interface"
         )
-    for line in text.splitlines():
+
+    lines = text.splitlines()
+    if any(line.startswith("ERROR ") for line in lines):
+        print(tail(logfile), file=sys.stderr)
+        raise DistError("QEMU/KVM smoke test reported a benchmark error")
+    ipc_results = [
+        line for line in lines
+        if line.startswith("RESULT ipc ") and " tag=q " in line
+        and " hogs=16 " in line
+    ]
+    if len(ipc_results) != 2:
+        print(tail(logfile), file=sys.stderr)
+        raise DistError(
+            "QEMU/KVM smoke test did not produce both off/on IPC results"
+        )
+    for line in lines:
         if line.startswith("RESULT "):
             print("  " + line)
     log("KVM smoke test passed")

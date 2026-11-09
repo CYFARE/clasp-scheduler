@@ -5,6 +5,7 @@
  * output, and powers the VM off.  No shell or external tools are needed.
  */
 #define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -21,10 +22,14 @@ static void write_all(int fd, const char *buf, size_t len)
 	while (len) {
 		ssize_t n = write(fd, buf, len);
 
-		if (n <= 0)
+		if (n > 0) {
+			buf += n;
+			len -= (size_t)n;
+		} else if (n < 0 && errno == EINTR) {
+			continue;
+		} else {
 			break;
-		buf += n;
-		len -= (size_t)n;
+		}
 	}
 }
 
@@ -39,8 +44,8 @@ static void out(const char *fmt, ...)
 	va_end(ap);
 	if (n < 0)
 		return;
-	if (n > (int)sizeof(buf))
-		n = sizeof(buf);
+	if (n >= (int)sizeof(buf))
+		n = sizeof(buf) - 1;
 	write_all(STDOUT_FILENO, buf, (size_t)n);
 }
 
@@ -57,16 +62,23 @@ static void show_file(const char *path)
 	close(fd);
 }
 
-static int write_str(const char *path, const char *value)
+static void write_str(const char *path, const char *value)
 {
+	size_t len = strlen(value);
 	ssize_t n;
 	int fd = open(path, O_WRONLY);
 
-	if (fd < 0)
-		return -1;
-	n = write(fd, value, strlen(value));
-	close(fd);
-	return n == (ssize_t)strlen(value) ? 0 : -1;
+	if (fd >= 0) {
+		do {
+			n = write(fd, value, len);
+		} while (n < 0 && errno == EINTR);
+		close(fd);
+		if (n == (ssize_t)len)
+			return;
+	}
+
+	out("ERROR control %s=%s\n", path, value);
+	_exit(1);
 }
 
 static int run(char *const argv[])
@@ -203,14 +215,38 @@ int main(void)
 		goto done;
 	}
 
-	if (has_clasp) {
+	if (cmdline_has("clasp.tune=1") && has_clasp) {
 		write_str("/proc/sys/kernel/sched_clasp", "0");
-		suite("ctrl");
+		bench("t", "ipc", "16", "1000", "4", NULL);
+		bench("t", "pipe", "8", "3", NULL, NULL);
 		show_file("/sys/kernel/debug/sched_clasp");
 
 		write_str("/proc/sys/kernel/sched_clasp", "1");
-		suite("clasp");
+		bench("t", "ipc", "16", "1000", "4", NULL);
+		bench("t", "pipe", "8", "3", NULL, NULL);
 		show_file("/sys/kernel/debug/sched_clasp");
+		out("TUNE_DONE\n");
+		goto done;
+	}
+
+	if (has_clasp) {
+		if (cmdline_has("clasp.reverse=1")) {
+			write_str("/proc/sys/kernel/sched_clasp", "1");
+			suite("clasp");
+			show_file("/sys/kernel/debug/sched_clasp");
+
+			write_str("/proc/sys/kernel/sched_clasp", "0");
+			suite("ctrl");
+			show_file("/sys/kernel/debug/sched_clasp");
+		} else {
+			write_str("/proc/sys/kernel/sched_clasp", "0");
+			suite("ctrl");
+			show_file("/sys/kernel/debug/sched_clasp");
+
+			write_str("/proc/sys/kernel/sched_clasp", "1");
+			suite("clasp");
+			show_file("/sys/kernel/debug/sched_clasp");
+		}
 	} else if (has_bore) {
 		write_str("/proc/sys/kernel/sched_bore", "0");
 		suite("bore-off");

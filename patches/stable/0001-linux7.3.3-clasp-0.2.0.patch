@@ -1,22 +1,25 @@
-From 28ff3e28bdf0c5f08af0ebb8bc7c51e8c0d867d7 Mon Sep 17 00:00:00 2001
-From: CLASP Project <clasp@example.com>
-Date: Mon, 9 Nov 2026 19:30:47 +0530
-Subject: [PATCH] linux7.3.3-clasp-0.1.0
+From 3bf77ef1910ebe0ceb478c824552772c136e12ff Mon Sep 17 00:00:00 2001
+From: CLASP-Scheduler <security@cyfare.net>
+Date: Mon, 9 Nov 2026 20:31:21 +0530
+Subject: [PATCH] linux7.3.3-clasp-0.2.0
 
+Add bounded wake-to-run latency feedback to EEVDF with per-task credit, eligibility guardrails, and O(1) fork handling.
+
+Signed-off-by: CLASP-Scheduler <security@cyfare.net>
 ---
  include/linux/sched.h       |  33 ++
  include/linux/sched/clasp.h |  61 +++
  init/Kconfig                |  18 +
  kernel/sched/Makefile       |   1 +
- kernel/sched/clasp.c        | 716 ++++++++++++++++++++++++++++++++++++
+ kernel/sched/clasp.c        | 726 ++++++++++++++++++++++++++++++++++++
  kernel/sched/core.c         |   7 +
- kernel/sched/fair.c         |  71 ++++
- 7 files changed, 907 insertions(+)
+ kernel/sched/fair.c         |  70 ++++
+ 7 files changed, 916 insertions(+)
  create mode 100644 include/linux/sched/clasp.h
  create mode 100644 kernel/sched/clasp.c
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 78bfc0e..1de7371 100644
+index 78bfc0e..fd78630 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -832,6 +832,36 @@ struct task_ipi_mask {
@@ -32,11 +35,11 @@ index 78bfc0e..1de7371 100644
 + * remote cache line just to read scheduling history.
 + */
 +struct clasp_ctx {
-+	u64	wait_start;		/* rq clock at wake enqueue */
-+	u64	sleep_start;		/* rq clock at voluntary sleep */
++	u64	wait_start;		/* sched_clock() at wake enqueue */
++	u64	sleep_start;		/* sched_clock() at voluntary sleep */
 +	u64	episode_exec;		/* sum_exec_runtime at wake */
 +	u64	last_exec;		/* sum_exec_runtime at last wake */
-+	u64	last_budget;		/* rq clock of last budget refill */
++	u64	last_budget;		/* sched_clock() of last budget refill */
 +	u64	last_fork;		/* parent fork timestamp */
 +	u64	hold_until;		/* keep boost active until this time */
 +	u32	run_avg;		/* EWMA of CPU ns per wake episode */
@@ -175,10 +178,10 @@ index b1f1a36..02d3587 100644
  obj-y += build_utility.o
 diff --git a/kernel/sched/clasp.c b/kernel/sched/clasp.c
 new file mode 100644
-index 0000000..96fe7e4
+index 0000000..42375ee
 --- /dev/null
 +++ b/kernel/sched/clasp.c
-@@ -0,0 +1,716 @@
+@@ -0,0 +1,726 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CLASP: Closed-Loop Adaptive Scheduling Policy
@@ -341,6 +344,7 @@ index 0000000..96fe7e4
 +static void clasp_refill_budget(struct clasp_ctx *c, u64 now)
 +{
 +	u64 elapsed, cap, refill;
++	u32 pct;
 +
 +	if (!c->last_budget) {
 +		c->last_budget = now;
@@ -356,7 +360,11 @@ index 0000000..96fe7e4
 +	if (elapsed > cap)
 +		elapsed = cap;		/* pct is bounded by 100 */
 +
-+	refill = div64_u64(elapsed * (u64)sched_clasp_budget_pct, 100);
++	pct = READ_ONCE(sched_clasp_budget_pct);
++	if (likely(pct == 100))
++		refill = elapsed;
++	else
++		refill = div64_u64(elapsed * (u64)pct, 100);
 +	refill = min(refill, cap);
 +	c->budget = (u32)min_t(u64, cap, (u64)c->budget + refill);
 +}
@@ -468,13 +476,21 @@ index 0000000..96fe7e4
 +	if (c->boost > bmax)
 +		c->boost = bmax;
 +
++	this_cpu_inc(clasp_stats.wakeups);
++	this_cpu_add(clasp_stats.boost_sum_ns, c->boost);
++	if (se->vlag < 0)
++		this_cpu_inc(clasp_stats.ineligible);
++
++	if (!allowed) {
++		c->flags &= ~CLASP_F_PREEMPT;
++		return 0;
++	}
++
 +	desired = max(c->boost, clasp_debt_ns(se));
 +	desired = min(desired, c->budget);
 +	headroom = bmax > c->credit_outstanding ?
 +		bmax - c->credit_outstanding : 0;
 +	credit = min(desired, headroom);
-+	if (!allowed)
-+		credit = 0;
 +
 +	if (credit) {
 +		c->budget -= credit;
@@ -487,10 +503,6 @@ index 0000000..96fe7e4
 +		       now < c->hold_until))
 +		c->flags |= CLASP_F_PREEMPT;
 +
-+	this_cpu_inc(clasp_stats.wakeups);
-+	this_cpu_add(clasp_stats.boost_sum_ns, c->boost);
-+	if (se->vlag < 0)
-+		this_cpu_inc(clasp_stats.ineligible);
 +	if (credit) {
 +		this_cpu_inc(clasp_stats.boosted);
 +		this_cpu_add(clasp_stats.credit_ns, credit);
@@ -580,8 +592,9 @@ index 0000000..96fe7e4
 +		c->flags &= ~CLASP_F_EPISODE;
 +	}
 +
-+	/* A voluntary sleep is proof that this task can be a real sleeper. */
-+	c->flags &= ~(CLASP_F_PREEMPT | CLASP_F_PROBATION);
++	/* A voluntary sleep ends fork probation and proves a real sleeper. */
++	c->flags &= ~(CLASP_F_PREEMPT | CLASP_F_FORK_HEAVY |
++		      CLASP_F_PROBATION);
 +	c->wait_start = 0;
 +	c->sleep_start = now ? now : 1;
 +	c->flags |= CLASP_F_SLEEPING;
@@ -921,7 +934,7 @@ index 1754d9f..cab1e2d 100644
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 0f23644..97eef44 100644
+index 0f23644..c544865 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -61,6 +61,11 @@
@@ -1033,13 +1046,12 @@ index 0f23644..97eef44 100644
  	if (cse_is_idle != pse_is_idle)
  		goto update;
  
-@@ -15378,6 +15445,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
+@@ -15378,6 +15445,9 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
  static void task_fork_fair(struct task_struct *p)
  {
  	set_task_max_allowed_capacity(p);
 +#ifdef CONFIG_SCHED_CLASP
-+	if (static_branch_likely(&sched_clasp_key))
-+		clasp_task_fork(p, current);
++	clasp_task_fork(p, current);
 +#endif
  }
  

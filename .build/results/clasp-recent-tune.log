@@ -1,0 +1,45 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #3 SMP PREEMPT_DYNAMIC Mon Nov  9 20:12:04 IST 2026
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet clasp.tune=1 preempt=full
+ONLINE 0-7
+CONTROLS clasp=1 bore=0
+RUN t ipc 16 1000 4 -
+BEGIN t ipc
+RESULT ipc tag=t hogs=16 interval_us=1000 samples=4000 p50_us=6.9 p90_us=2778.8 p99_us=2797.4 p999_us=2803.7 max_us=18814.0 mean_us=587.4
+RUN t pipe 8 3 - -
+BEGIN t pipe
+RESULT pipe tag=t pairs=8 seconds=3 msgs=44386688 msgs_per_sec=11096672
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 182 17 0 5250366 50479 11555 4763337 0 0 15
+1 75 49 0 17022287 197015 16056 119758069 0 0 0
+2 239 114 0 37077886 534622 37852 294854546 0 0 0
+3 36 14 0 8235967 124757 26189 55717903 0 0 0
+4 56 17 0 9849906 84149 15198 54843400 0 0 0
+5 347 43 0 28611449 117590 49382 477431017 0 0 1
+6 51 33 0 15289542 110127 26664 27805137 0 0 0
+7 65 42 0 23001728 188135 17857 142850849 0 0 0
+total 1051 329 0 144339131 1406874 49382 1178024258 0 0 16
+RUN t ipc 16 1000 4 -
+BEGIN t ipc
+RESULT ipc tag=t hogs=16 interval_us=1000 samples=4000 p50_us=9.4 p90_us=12.2 p99_us=2776.6 p999_us=2793.0 max_us=22245.1 mean_us=127.5
+RUN t pipe 8 3 - -
+BEGIN t pipe
+RESULT pipe tag=t pairs=8 seconds=3 msgs=41534966 msgs_per_sec=10383742
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 2604098 35 483 10786342 360278525 42501426 9764676618461 1 1 15
+1 2611559 7377 0 149175721 28218278 35681 4881341663163 1789 1789 0
+2 2608669 120 0 37203399 541224 37852 315467071 0 0 0
+3 2608833 18 0 12255461 155770 26189 72913340 0 0 0
+4 2502044 23 0 14137244 117038 15198 74101594 0 0 0
+5 2606778 48 0 30238501 136896 49382 21010232478 0 0 2
+6 2607723 38 1 19467392 4295083009 4294967295 49287150 0 0 0
+7 2573911 58 3 25286751 2118499 1881262 201517139 3 3 0
+total 20723615 7717 487 298550811 4686649239 4294967295 14667741800396 1793 1793 17
+TUNE_DONE
+[   17.524701] reboot: Power down

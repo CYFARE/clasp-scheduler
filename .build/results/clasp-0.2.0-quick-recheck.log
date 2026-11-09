@@ -1,0 +1,64 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #1 SMP PREEMPT_DYNAMIC Mon Nov  9 20:34:11 IST 2026
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet clasp.quick=1 preempt=full
+ONLINE 0-7
+CONTROLS clasp=1 bore=0
+QUICK
+RUN q cpu 1 1 - -
+BEGIN q cpu
+RESULT cpu tag=q threads=1 seconds=1 ops=803246080 ops_per_sec=803246080
+RUN q latency 16 0 1000 4
+BEGIN q latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.1 p90_us=562.5 p99_us=1854.7 p999_us=11164.1 max_us=14163.4 mean_us=193.3 forks=0
+RUN q ipc 16 1000 4 -
+BEGIN q ipc
+RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=7.4 p90_us=2781.7 p99_us=2799.3 p999_us=2806.7 max_us=17377.4 mean_us=1171.6
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 434 88 0 45811006 773434 78112 188206300 0 0 20
+1 34 32 0 6415169 350569 62836 75955444 0 0 0
+2 192 75 0 19197411 476162 18235 166897899 0 0 0
+3 40 23 0 14523491 262363 95595 90170010 0 0 0
+4 74 49 0 25235343 524790 94658 138905605 0 0 0
+5 63 25 0 20221963 210207 17788 82688363 0 0 0
+6 31 19 0 13002237 156375 21798 61813097 0 0 0
+7 204 32 0 13620292 387272 69957 106515377 0 0 1
+total 1072 343 0 158026912 3141172 95595 911152095 0 0 21
+RUN q latency 16 0 1000 4
+BEGIN q latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=q hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.3 p99_us=53.1 p999_us=59.6 max_us=1853.8 mean_us=52.7 forks=0
+RUN q ipc 16 1000 4 -
+BEGIN q ipc
+RESULT ipc tag=q hogs=16 interval_us=1000 samples=4000 p50_us=9.8 p90_us=11.4 p99_us=16.8 p999_us=2787.5 max_us=18962.9 mean_us=21.7
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 4465 4105 33 72194342 57625007 2792577 833435072 3978 3978 20
+1 11986 7956 0 168243247 40585060 62836 1538033760 3950 3950 0
+2 201 77 0 27197411 481670 18235 197911854 0 0 0
+3 52 34 0 18710882 368023 95595 130695708 0 0 0
+4 82 57 0 33589040 602176 94658 170905605 0 0 0
+5 88 48 0 37195286 454744 18324 180481937 0 0 0
+6 32 20 0 17002237 159097 21798 65813097 0 0 0
+7 207 35 0 25620292 461382 69957 118515377 0 0 1
+total 17113 12332 33 399752737 100737159 2792577 3235792410 7928 7928 21
+RUN q latency 8 0 1000 4
+BEGIN q latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=q hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.4 p99_us=54.0 p999_us=76.4 max_us=1853.7 mean_us=52.6 forks=0
+QUICK_DONE
+[   24.879960] reboot: Power down

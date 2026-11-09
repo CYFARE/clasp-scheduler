@@ -63,3 +63,16 @@ fi
 	-kernel "$KERNEL" -initrd "$INITRD" \
 	-append "$APPEND" \
 	-nographic -no-reboot 2>&1 | tee "$LOG"
+
+if grep -aq '^ERROR ' "$LOG"; then
+	echo "benchmark reported an error; see $LOG" >&2
+	exit 1
+fi
+if ! grep -aq '^RESULT ' "$LOG"; then
+	echo "benchmark produced no results; see $LOG" >&2
+	exit 1
+fi
+if ! grep -aqE '^(BENCH_DONE|QUICK_DONE|TUNE_DONE)' "$LOG"; then
+	echo "benchmark did not complete; see $LOG" >&2
+	exit 1
+fi

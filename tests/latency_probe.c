@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +19,7 @@
 
 static int ncpu;
 static int pin_cpu_id;
-static volatile int *shared_stop;
+static _Atomic int *shared_stop;
 static unsigned long *shared_count;
 static unsigned long *shared_ops;
 
@@ -32,10 +33,14 @@ static void write_all(int fd, const char *buf, size_t len)
 	while (len) {
 		ssize_t n = write(fd, buf, len);
 
-		if (n <= 0)
+		if (n > 0) {
+			buf += n;
+			len -= (size_t)n;
+		} else if (n < 0 && errno == EINTR) {
+			continue;
+		} else {
 			break;
-		buf += n;
-		len -= (size_t)n;
+		}
 	}
 }
 
@@ -50,8 +55,8 @@ static void out(const char *fmt, ...)
 	va_end(ap);
 	if (n < 0)
 		return;
-	if (n > (int)sizeof(buf))
-		n = sizeof(buf);
+	if (n >= (int)sizeof(buf))
+		n = sizeof(buf) - 1;
 	write_all(STDOUT_FILENO, buf, (size_t)n);
 }
 
@@ -71,7 +76,10 @@ static void pin_to_cpu(int cpu)
 		return;
 	CPU_ZERO(&set);
 	CPU_SET(cpu % ncpu, &set);
-	sched_setaffinity(0, sizeof(set), &set);
+	if (sched_setaffinity(0, sizeof(set), &set)) {
+		perror("sched_setaffinity");
+		exit(1);
+	}
 }
 
 static void busy_for_ns(long long duration)
@@ -97,6 +105,7 @@ static void *hog_thread(void *arg)
 			x ^= x >> 7;
 			x ^= x << 17;
 		}
+		__asm__ __volatile__("" : "+r"(x));
 		ops += 4096;
 	}
 	__sync_fetch_and_add(shared_ops, ops);
@@ -135,8 +144,23 @@ static int cmp_u32(const void *a, const void *b)
 
 static uint32_t latency_percentile(const uint32_t *v, long n, int pct)
 {
-	long idx = (n * pct) / 100;
+	long idx;
 
+	if (!n)
+		return 0;
+	idx = (n * pct) / 100;
+	if (idx >= n)
+		idx = n - 1;
+	return v[idx];
+}
+
+static uint32_t latency_permille(const uint32_t *v, long n, int permille)
+{
+	long idx;
+
+	if (!n)
+		return 0;
+	idx = (n * permille) / 1000;
 	if (idx >= n)
 		idx = n - 1;
 	return v[idx];
@@ -269,7 +293,7 @@ static int run_latency(const char *tag, int hogs, int forkers,
 	       latency_percentile(lat, n, 50) / 1000.0,
 	       latency_percentile(lat, n, 90) / 1000.0,
 	       latency_percentile(lat, n, 99) / 1000.0,
-	       latency_percentile(lat, n, 999) / 1000.0,
+	       latency_permille(lat, n, 999) / 1000.0,
 	       lat[n - 1] / 1000.0,
 	       n ? (double)sum / n / 1000.0 : 0.0,
 	       *shared_count);
@@ -371,6 +395,7 @@ static void *cpu_thread(void *arg)
 			x ^= x >> 7;
 			x ^= x << 17;
 		}
+		__asm__ __volatile__("" : "+r"(x));
 		ops += 4096;
 	}
 	shared_ops[idx] = ops;
@@ -464,7 +489,7 @@ struct ipc_args {
 	int ackfd;
 	long samples;
 	int interval_us;
-	volatile uint64_t *wake_ts;
+	_Atomic uint64_t *wake_ts;
 };
 
 static void *ipc_waker_thread(void *arg)
@@ -499,7 +524,7 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 	pthread_t *threads = NULL, waker;
 	struct ipc_args args;
 	uint32_t *lat;
-	volatile uint64_t *wake_ts;
+	_Atomic uint64_t *wake_ts;
 	long samples, i, n = 0;
 	unsigned long long sum = 0;
 	int p1[2], p2[2];
@@ -585,7 +610,7 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 	    latency_percentile(lat, n, 50) / 1000.0,
 	    latency_percentile(lat, n, 90) / 1000.0,
 	    latency_percentile(lat, n, 99) / 1000.0,
-	    latency_percentile(lat, n, 999) / 1000.0,
+	    latency_permille(lat, n, 999) / 1000.0,
 	    n ? lat[n - 1] / 1000.0 : 0.0,
 	    n ? (double)sum / n / 1000.0 : 0.0);
 

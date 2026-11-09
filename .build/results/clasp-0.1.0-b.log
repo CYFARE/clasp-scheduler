@@ -1,0 +1,173 @@
+c[?7l[2J[0mSeaBIOS (version Arch Linux 1.17.0-2-2)
+
+
+iPXE (http://ipxe.org) 00:03.0 C900 PCI2.10 PnP PMM+BEFD3D10+BEF33D10 C900
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2JBOOT Linux version 7.3.3 (plz@plz) (clang version 23.1.4, LLD 23.1.4) #1 SMP PREEMPT_DYNAMIC Mon Nov  9 20:03:28 IST 2026
+CMDLINE console=ttyS0 rdinit=/init panic=1 quiet clasp.reverse=1 preempt=full
+ONLINE 0-7
+CONTROLS clasp=1 bore=0
+PHASE clasp
+RUN clasp latency 0 0 1000 3
+BEGIN clasp latency
+LAT setup hogs=0 forkers=0 max=13000
+LAT warm
+LAT go
+LAT measured n=3000
+RESULT latency tag=clasp hogs=0 forkers=0 interval_us=1000 samples=3000 p50_us=70.4 p90_us=85.1 p99_us=171.5 p999_us=400.6 max_us=520.9 mean_us=74.8 forks=0
+RUN clasp latency 1 0 1000 4
+BEGIN clasp latency
+LAT setup hogs=1 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=clasp hogs=1 forkers=0 interval_us=1000 samples=4000 p50_us=51.9 p90_us=52.2 p99_us=53.3 p999_us=55.7 max_us=59.1 mean_us=52.0 forks=0
+RUN clasp latency 4 0 1000 4
+BEGIN clasp latency
+LAT setup hogs=4 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=clasp hogs=4 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.4 p99_us=53.6 p999_us=56.4 max_us=1659.6 mean_us=52.5 forks=0
+RUN clasp latency 8 0 1000 4
+BEGIN clasp latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=clasp hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.4 p99_us=53.4 p999_us=64.3 max_us=1854.5 mean_us=52.6 forks=0
+RUN clasp latency 16 0 1000 4
+BEGIN clasp latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=clasp hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=52.3 p99_us=53.4 p999_us=88.0 max_us=1853.2 mean_us=52.6 forks=0
+RUN clasp latency 4 2 1000 4
+BEGIN clasp latency
+LAT setup hogs=4 forkers=2 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=clasp hogs=4 forkers=2 interval_us=1000 samples=4000 p50_us=52.4 p90_us=53.0 p99_us=55.2 p999_us=76.8 max_us=1334.0 mean_us=52.8 forks=1932
+RUN clasp ipc 1 1000 4 -
+BEGIN clasp ipc
+RESULT ipc tag=clasp hogs=1 interval_us=1000 samples=4000 p50_us=8.6 p90_us=10.5 p99_us=13.2 p999_us=23.4 max_us=29.0 mean_us=7.9
+RUN clasp ipc 4 1000 4 -
+BEGIN clasp ipc
+RESULT ipc tag=clasp hogs=4 interval_us=1000 samples=4000 p50_us=6.0 p90_us=10.6 p99_us=12.7 p999_us=26.1 max_us=1804.5 mean_us=7.2
+RUN clasp ipc 8 1000 4 -
+BEGIN clasp ipc
+RESULT ipc tag=clasp hogs=8 interval_us=1000 samples=4000 p50_us=9.7 p90_us=11.5 p99_us=14.0 p999_us=26.1 max_us=9314.2 mean_us=12.7
+RUN clasp ipc 16 1000 4 -
+BEGIN clasp ipc
+RESULT ipc tag=clasp hogs=16 interval_us=1000 samples=4000 p50_us=6.7 p90_us=11.7 p99_us=14.8 p999_us=826.4 max_us=15359.4 mean_us=13.5
+RUN clasp pipe 1 3 - -
+BEGIN clasp pipe
+RESULT pipe tag=clasp pairs=1 seconds=3 msgs=6389021 msgs_per_sec=1597255
+RUN clasp pipe 4 3 - -
+BEGIN clasp pipe
+RESULT pipe tag=clasp pairs=4 seconds=3 msgs=21815569 msgs_per_sec=5453892
+RUN clasp pipe 8 3 - -
+BEGIN clasp pipe
+RESULT pipe tag=clasp pairs=8 seconds=3 msgs=38572562 msgs_per_sec=9643140
+RUN clasp cpu 8 3 - -
+BEGIN clasp cpu
+RESULT cpu tag=clasp threads=8 seconds=3 ops=16188624896 ops_per_sec=5396208299
+RUN clasp fork 4 3 - -
+BEGIN clasp fork
+RESULT fork tag=clasp forkers=4 seconds=3 forks=2114 forks_per_sec=705
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 8350377 26867 39 208829326 6156424359 18081116 7052670485 14229 14229 7
+1 5179066 31998 0 492503026 4096619584 146192 6792542985 11412 11412 0
+2 5129174 1338 0 56883214 3971442533 63731 1244336242 0 0 0
+3 5133082 43 0 15049356 3961434446 55438 151169437 0 0 0
+4 2410067 248 0 34368094 1983578631 64432 831925527 0 0 2
+5 2388718 850 0 49417247 1975684179 93919 831749232 1 1 0
+6 2402981 47 0 16212050 1980109837 81219 172396049 0 0 1
+7 2395884 46 0 17052078 1972835764 49002 187719243 0 0 2
+total 33389349 61437 39 890314391 26098129333 18081116 17264509200 25642 25642 12
+PHASE ctrl
+RUN ctrl latency 0 0 1000 3
+BEGIN ctrl latency
+LAT setup hogs=0 forkers=0 max=13000
+LAT warm
+LAT go
+LAT measured n=3000
+RESULT latency tag=ctrl hogs=0 forkers=0 interval_us=1000 samples=3000 p50_us=38.1 p90_us=47.4 p99_us=168.1 p999_us=373.8 max_us=457.2 mean_us=40.2 forks=0
+RUN ctrl latency 1 0 1000 4
+BEGIN ctrl latency
+LAT setup hogs=1 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=ctrl hogs=1 forkers=0 interval_us=1000 samples=4000 p50_us=51.8 p90_us=52.1 p99_us=52.9 p999_us=770.4 max_us=1769.1 mean_us=53.3 forks=0
+RUN ctrl latency 4 0 1000 4
+BEGIN ctrl latency
+LAT setup hogs=4 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=ctrl hogs=4 forkers=0 interval_us=1000 samples=4000 p50_us=51.8 p90_us=52.3 p99_us=53.3 p999_us=1055.4 max_us=1114.8 mean_us=57.4 forks=0
+RUN ctrl latency 8 0 1000 4
+BEGIN ctrl latency
+LAT setup hogs=8 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=ctrl hogs=8 forkers=0 interval_us=1000 samples=4000 p50_us=33.9 p90_us=34.9 p99_us=1835.1 p999_us=15419.1 max_us=18417.7 mean_us=119.3 forks=0
+RUN ctrl latency 16 0 1000 4
+BEGIN ctrl latency
+LAT setup hogs=16 forkers=0 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=ctrl hogs=16 forkers=0 interval_us=1000 samples=4000 p50_us=52.0 p90_us=1087.2 p99_us=2658.9 p999_us=10810.8 max_us=13810.1 mean_us=320.4 forks=0
+RUN ctrl latency 4 2 1000 4
+BEGIN ctrl latency
+LAT setup hogs=4 forkers=2 max=14000
+LAT warm
+LAT go
+LAT measured n=4000
+RESULT latency tag=ctrl hogs=4 forkers=2 interval_us=1000 samples=4000 p50_us=52.3 p90_us=443.3 p99_us=2660.6 p999_us=2744.9 max_us=2786.2 mean_us=206.0 forks=1677
+RUN ctrl ipc 1 1000 4 -
+BEGIN ctrl ipc
+RESULT ipc tag=ctrl hogs=1 interval_us=1000 samples=4000 p50_us=8.8 p90_us=10.8 p99_us=249.2 p999_us=1811.7 max_us=1821.7 mean_us=18.4
+RUN ctrl ipc 4 1000 4 -
+BEGIN ctrl ipc
+RESULT ipc tag=ctrl hogs=4 interval_us=1000 samples=4000 p50_us=7.1 p90_us=11.1 p99_us=1026.2 p999_us=1658.4 max_us=6569.4 mean_us=42.3
+RUN ctrl ipc 8 1000 4 -
+BEGIN ctrl ipc
+RESULT ipc tag=ctrl hogs=8 interval_us=1000 samples=4000 p50_us=9.3 p90_us=11.8 p99_us=2683.7 p999_us=2803.1 max_us=8409.4 mean_us=141.6
+RUN ctrl ipc 16 1000 4 -
+BEGIN ctrl ipc
+RESULT ipc tag=ctrl hogs=16 interval_us=1000 samples=4000 p50_us=6.0 p90_us=2780.4 p99_us=2799.8 p999_us=2804.5 max_us=9877.2 mean_us=1000.8
+RUN ctrl pipe 1 3 - -
+BEGIN ctrl pipe
+RESULT pipe tag=ctrl pairs=1 seconds=3 msgs=6810742 msgs_per_sec=1702686
+RUN ctrl pipe 4 3 - -
+BEGIN ctrl pipe
+RESULT pipe tag=ctrl pairs=4 seconds=3 msgs=23067575 msgs_per_sec=5766894
+RUN ctrl pipe 8 3 - -
+BEGIN ctrl pipe
+RESULT pipe tag=ctrl pairs=8 seconds=3 msgs=41084244 msgs_per_sec=10271061
+RUN ctrl cpu 8 3 - -
+BEGIN ctrl cpu
+RESULT cpu tag=ctrl threads=8 seconds=3 ops=16189513728 ops_per_sec=5396504576
+RUN ctrl fork 4 3 - -
+BEGIN ctrl fork
+RESULT fork tag=ctrl forkers=4 seconds=3 forks=2115 forks_per_sec=705
+cpu wakeups boosted misses credit_ns lat_sum_ns lat_max_ns boost_sum_ns preempt_try preempt_ok ineligible
+0 8350377 26867 39 208829326 6156424359 18081116 7052670485 14229 14229 7
+1 5179066 31998 0 492503026 4096619584 146192 6792542985 11412 11412 0
+2 5129174 1338 0 56883214 3971442533 63731 1244336242 0 0 0
+3 5133082 43 0 15049356 3961434446 55438 151169437 0 0 0
+4 2410067 248 0 34368094 1983578631 64432 831925527 0 0 2
+5 2388718 850 0 49417247 1975684179 93919 831749232 1 1 0
+6 2402981 47 0 16212050 1980109837 81219 172396049 0 0 1
+7 2395884 46 0 17052078 1972835764 49002 187719243 0 0 2
+total 33389349 61437 39 890314391 26098129333 18081116 17264509200 25642 25642 12
+BENCH_DONE
+[  121.981598] reboot: Power down

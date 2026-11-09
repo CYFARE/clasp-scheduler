@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700">
+  <defs>
+    <style>
+      .title { font: 700 34px 'DejaVu Sans', sans-serif; fill: #17202a; }
+      .subtitle { font: 18px 'DejaVu Sans', sans-serif; fill: #52606d; }
+      .heading { font: 700 20px 'DejaVu Sans', sans-serif; fill: #17202a; }
+      .text { font: 17px 'DejaVu Sans', sans-serif; fill: #24313d; }
+      .small { font: 14px 'DejaVu Sans', sans-serif; fill: #52606d; }
+      .value { font: 700 15px 'DejaVu Sans', sans-serif; fill: #24313d; }
+      .grid { stroke: #d7dde2; stroke-width: 1; }
+    </style>
+  </defs>
+  <rect width="1400" height="700" fill="#ffffff"/>
+  <text x="700" y="52" text-anchor="middle" class="title">CLASP 0.2.0 · 16-hog IPC wake latency</text>
+  <text x="700" y="84" text-anchor="middle" class="subtitle">Linux 7.3.3 KVM · 8 vCPUs · default sysctls · 4,000 samples per run</text>
+
+  <rect x="950" y="108" width="22" height="16" fill="#aab4bd"/>
+  <text x="982" y="122" class="text">CLASP off</text>
+  <rect x="1090" y="108" width="22" height="16" fill="#3478b9"/>
+  <text x="1122" y="122" class="text">CLASP on</text>
+
+  <line x1="350" y1="145" x2="350" y2="555" class="grid"/>
+  <line x1="593" y1="145" x2="593" y2="555" class="grid"/>
+  <line x1="837" y1="145" x2="837" y2="555" class="grid"/>
+  <line x1="1080" y1="145" x2="1080" y2="555" class="grid"/>
+  <line x1="1203" y1="145" x2="1203" y2="555" class="grid"/>
+
+  <text x="60" y="176" class="heading">Run A · off → on</text>
+  <text x="180" y="208" class="text">p90</text>
+  <rect x="350" y="187" width="646" height="22" fill="#aab4bd"/>
+  <text x="1006" y="204" class="value">650.9 µs</text>
+  <rect x="350" y="217" width="246" height="22" fill="#3478b9"/>
+  <text x="606" y="234" class="value">10.2 µs</text>
+
+  <text x="180" y="278" class="text">p99</text>
+  <rect x="350" y="257" width="791" height="22" fill="#aab4bd"/>
+  <text x="1151" y="274" class="value">2778.9 µs</text>
+  <rect x="350" y="287" width="266" height="22" fill="#3478b9"/>
+  <text x="626" y="304" class="value">12.6 µs</text>
+
+  <text x="60" y="366" class="heading">Run B · on → off</text>
+  <text x="180" y="398" class="text">p90</text>
+  <rect x="350" y="377" width="792" height="22" fill="#aab4bd"/>
+  <text x="1152" y="394" class="value">2786.6 µs</text>
+  <rect x="350" y="407" width="260" height="22" fill="#3478b9"/>
+  <text x="620" y="424" class="value">11.8 µs</text>
+
+  <text x="180" y="468" class="text">p99</text>
+  <rect x="350" y="447" width="793" height="22" fill="#aab4bd"/>
+  <text x="1153" y="464" class="value">2799.4 µs</text>
+  <rect x="350" y="477" width="296" height="22" fill="#3478b9"/>
+  <text x="656" y="494" class="value">16.8 µs</text>
+
+  <line x1="350" y1="555" x2="1250" y2="555" stroke="#7d8992" stroke-width="2"/>
+  <text x="350" y="584" text-anchor="middle" class="small">1 µs</text>
+  <text x="593" y="584" text-anchor="middle" class="small">10 µs</text>
+  <text x="837" y="584" text-anchor="middle" class="small">100 µs</text>
+  <text x="1080" y="584" text-anchor="middle" class="small">1 ms</text>
+  <text x="1203" y="584" text-anchor="middle" class="small">3 ms</text>
+  <text x="1250" y="620" text-anchor="end" class="small">Lower is better · logarithmic scale</text>
+  <text x="700" y="661" text-anchor="middle" class="small">Individual runs are shown; percentiles are not pooled and the best run is not selected.</text>
+</svg>
