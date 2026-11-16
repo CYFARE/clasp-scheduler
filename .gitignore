@@ -1,0 +1,21 @@
+# Local build, benchmark, and experiment artifacts
+.build/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+.coverage
+.coverage.*
+htmlcov/
+pip-log.txt

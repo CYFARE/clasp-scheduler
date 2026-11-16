@@ -19,6 +19,7 @@
 
 static int ncpu;
 static int pin_cpu_id;
+static int ipc_realtime;
 static _Atomic int *shared_stop;
 static unsigned long *shared_count;
 static unsigned long *shared_ops;
@@ -488,7 +489,9 @@ struct ipc_args {
 	int wfd;
 	int ackfd;
 	long samples;
+	long switch_at;
 	int interval_us;
+	int later_interval_us;
 	_Atomic uint64_t *wake_ts;
 };
 
@@ -496,20 +499,31 @@ static void *ipc_waker_thread(void *arg)
 {
 	struct ipc_args *a = arg;
 	struct timespec next;
+	int interval_us = a->interval_us;
 	char c = 'x';
 	long j;
 
 	pin_to_cpu(1);
-	clock_gettime(CLOCK_MONOTONIC, &next);
 	for (j = 0; j < a->samples; j++) {
-		next.tv_nsec += (long)a->interval_us * 1000L;
-		while (next.tv_nsec >= 1000000000L) {
-			next.tv_sec++;
-			next.tv_nsec -= 1000000000L;
+		if (a->switch_at && j == a->switch_at)
+			interval_us = a->later_interval_us;
+		/*
+		 * Pace each sample from the completed ack.  Reusing an absolute
+		 * schedule would fire a burst of catch-up samples after one late
+		 * wake, hiding the scheduler's steady-state behavior behind an
+		 * artificially sub-100us cadence.
+		 */
+		if (j) {
+			clock_gettime(CLOCK_MONOTONIC, &next);
+			next.tv_nsec += (long)interval_us * 1000L;
+			while (next.tv_nsec >= 1000000000L) {
+				next.tv_sec++;
+				next.tv_nsec -= 1000000000L;
+			}
+			while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+					       &next, NULL) == EINTR)
+				;
 		}
-		while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
-				       &next, NULL) == EINTR)
-			;
 		*a->wake_ts = (uint64_t)now_ns();
 		if (write(a->wfd, &c, 1) != 1)
 			break;
@@ -519,22 +533,41 @@ static void *ipc_waker_thread(void *arg)
 	return NULL;
 }
 
-static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
+static void ipc_result(const char *tag, int hogs, int interval_us,
+		       uint32_t *lat, long n)
+{
+	unsigned long long sum = 0;
+	long i;
+
+	for (i = 0; i < n; i++)
+		sum += lat[i];
+	qsort(lat, n, sizeof(*lat), cmp_u32);
+	out("RESULT ipc tag=%s hogs=%d interval_us=%d samples=%ld "
+	    "p50_us=%.1f p90_us=%.1f p99_us=%.1f p999_us=%.1f "
+	    "max_us=%.1f mean_us=%.1f\n",
+	    tag, hogs, interval_us, n,
+	    latency_percentile(lat, n, 50) / 1000.0,
+	    latency_percentile(lat, n, 90) / 1000.0,
+	    latency_percentile(lat, n, 99) / 1000.0,
+	    latency_permille(lat, n, 999) / 1000.0,
+	    n ? lat[n - 1] / 1000.0 : 0.0,
+	    n ? (double)sum / n / 1000.0 : 0.0);
+}
+
+static int run_ipc_samples(const char *tag, int hogs, int interval_us,
+			   int later_interval_us, long phase_samples)
 {
 	pthread_t *threads = NULL, waker;
 	struct ipc_args args;
 	uint32_t *lat;
 	_Atomic uint64_t *wake_ts;
 	long samples, i, n = 0;
-	unsigned long long sum = 0;
 	int p1[2], p2[2];
 
-	if (ncpu < 2 || interval_us <= 0 || seconds <= 0)
+	if (ncpu < 2 || interval_us <= 0 || later_interval_us < 0 ||
+	    phase_samples <= 0)
 		return 1;
-
-	samples = (long)seconds * 1000000L / interval_us;
-	if (samples <= 0)
-		return 1;
+	samples = later_interval_us ? phase_samples * 2 : phase_samples;
 
 	lat = calloc(samples, sizeof(*lat));
 	if (!lat)
@@ -565,7 +598,9 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 	args.wfd = p1[1];
 	args.ackfd = p2[0];
 	args.samples = samples;
+	args.switch_at = later_interval_us ? phase_samples : 0;
 	args.interval_us = interval_us;
+	args.later_interval_us = later_interval_us;
 	args.wake_ts = wake_ts;
 
 	/*
@@ -576,6 +611,14 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 	if (pthread_create(&waker, NULL, ipc_waker_thread, &args))
 		return 1;
 
+	if (ipc_realtime) {
+		struct sched_param param = { .sched_priority = 1 };
+
+		if (sched_setscheduler(0, SCHED_FIFO, &param)) {
+			perror("sched_setscheduler");
+			return 1;
+		}
+	}
 	pin_to_cpu(0);
 	for (i = 0; i < samples; i++) {
 		long long t;
@@ -589,7 +632,6 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 
 			lat[n++] = d > UINT32_MAX ? UINT32_MAX :
 				   (uint32_t)d;
-			sum += (unsigned long long)d;
 		}
 		if (write(p2[1], &c, 1) != 1)
 			break;
@@ -602,21 +644,40 @@ static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
 			pthread_join(threads[i], NULL);
 	}
 
-	qsort(lat, n, sizeof(*lat), cmp_u32);
-	out("RESULT ipc tag=%s hogs=%d interval_us=%d samples=%ld "
-	    "p50_us=%.1f p90_us=%.1f p99_us=%.1f p999_us=%.1f "
-	    "max_us=%.1f mean_us=%.1f\n",
-	    tag, hogs, interval_us, n,
-	    latency_percentile(lat, n, 50) / 1000.0,
-	    latency_percentile(lat, n, 90) / 1000.0,
-	    latency_percentile(lat, n, 99) / 1000.0,
-	    latency_permille(lat, n, 999) / 1000.0,
-	    n ? lat[n - 1] / 1000.0 : 0.0,
-	    n ? (double)sum / n / 1000.0 : 0.0);
+	if (later_interval_us) {
+		long first_n = n < phase_samples ? n : phase_samples;
+
+		ipc_result(tag, hogs, interval_us, lat, first_n);
+		if (n > phase_samples)
+			ipc_result(tag, hogs, later_interval_us,
+				   lat + phase_samples, n - phase_samples);
+	} else {
+		ipc_result(tag, hogs, interval_us, lat, n);
+	}
 
 	free(lat);
 	free(threads);
 	return 0;
+}
+
+static int run_ipc(const char *tag, int hogs, int interval_us, int seconds)
+{
+	long samples;
+
+	if (interval_us <= 0 || seconds <= 0)
+		return 1;
+	samples = (long)seconds * 1000000L / interval_us;
+	return run_ipc_samples(tag, hogs, interval_us, 0, samples);
+}
+
+static int run_ipc_rt(const char *tag, int hogs, int interval_us, int seconds)
+{
+	int ret;
+
+	ipc_realtime = 1;
+	ret = run_ipc(tag, hogs, interval_us, seconds);
+	ipc_realtime = 0;
+	return ret;
 }
 
 static void usage(void)
@@ -624,6 +685,8 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: bench <tag> latency <hogs> <forkers> <interval_us> <sec>\n"
 		"       bench <tag> ipc <hogs> <interval_us> <sec>\n"
+		"       bench <tag> ipc-rt <hogs> <interval_us> <sec>\n"
+		"       bench <tag> ipc-adapt <hogs> <interval_us> <later_us> <samples>\n"
 		"       bench <tag> pipe <pairs> <sec>\n"
 		"       bench <tag> cpu <threads> <sec>\n"
 		"       bench <tag> fork <forkers> <sec>\n");
@@ -666,6 +729,12 @@ int main(int argc, char **argv)
 	if (!strcmp(argv[2], "ipc") && argc == 6)
 		return run_ipc(argv[1], atoi(argv[3]), atoi(argv[4]),
 			       atoi(argv[5]));
+	if (!strcmp(argv[2], "ipc-rt") && argc == 6)
+		return run_ipc_rt(argv[1], atoi(argv[3]), atoi(argv[4]),
+				  atoi(argv[5]));
+	if (!strcmp(argv[2], "ipc-adapt") && argc == 7)
+		return run_ipc_samples(argv[1], atoi(argv[3]), atoi(argv[4]),
+				       atoi(argv[5]), atol(argv[6]));
 
 	usage();
 	return 1;

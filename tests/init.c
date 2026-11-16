@@ -111,6 +111,14 @@ static void bench(const char *tag, const char *mode, const char *a,
 		out("ERROR bench %s %s status=%d\n", tag, mode, status);
 }
 
+static void focus_suite(const char *tag)
+{
+	bench(tag, "ipc", "16", "1000", "4", NULL);
+	bench(tag, "pipe", "1", "3", NULL, NULL);
+	bench(tag, "pipe", "4", "3", NULL, NULL);
+	bench(tag, "pipe", "8", "3", NULL, NULL);
+}
+
 static int cmdline_has(const char *needle)
 {
 	char buf[1024];
@@ -224,6 +232,50 @@ int main(void)
 		if (has_clasp)
 			show_file("/sys/kernel/debug/sched_clasp");
 		out("COMPARE_DONE\n");
+		goto done;
+	}
+
+	if (cmdline_has("clasp.floor=1") && has_clasp) {
+		write_str("/proc/sys/kernel/sched_clasp", "1");
+		bench("clasp", "ipc", "16", "1000", "4", NULL);
+		bench("rt", "ipc-rt", "16", "1000", "4", NULL);
+		out("FLOOR_DONE\n");
+		goto done;
+	}
+
+	if (cmdline_has("clasp.adapt=1") && has_clasp) {
+		write_str("/proc/sys/kernel/sched_clasp", "0");
+		bench("a", "ipc-adapt", "16", "50", "1000", "4000");
+		bench("a", "ipc-adapt", "16", "1000", "50", "4000");
+		show_file("/sys/kernel/debug/sched_clasp");
+
+		write_str("/proc/sys/kernel/sched_clasp", "1");
+		bench("a", "ipc-adapt", "16", "50", "1000", "4000");
+		bench("a", "ipc-adapt", "16", "1000", "50", "4000");
+		show_file("/sys/kernel/debug/sched_clasp");
+		out("ADAPT_DONE\n");
+		goto done;
+	}
+
+	if (cmdline_has("clasp.focus=1") && has_clasp) {
+		if (cmdline_has("clasp.reverse=1")) {
+			write_str("/proc/sys/kernel/sched_clasp", "1");
+			focus_suite("f");
+			show_file("/sys/kernel/debug/sched_clasp");
+
+			write_str("/proc/sys/kernel/sched_clasp", "0");
+			focus_suite("f");
+			show_file("/sys/kernel/debug/sched_clasp");
+		} else {
+			write_str("/proc/sys/kernel/sched_clasp", "0");
+			focus_suite("f");
+			show_file("/sys/kernel/debug/sched_clasp");
+
+			write_str("/proc/sys/kernel/sched_clasp", "1");
+			focus_suite("f");
+			show_file("/sys/kernel/debug/sched_clasp");
+		}
+		out("FOCUS_DONE\n");
 		goto done;
 	}
 
