@@ -45,7 +45,7 @@ If it did not, the task gets a small, strictly limited head start the next time 
 
 ## How it works
 
-![CLASP design overview: task signals, control loop, guardrails, and scheduler integration](assets/CLASP-Diagram.webp)
+![CLASP design overview: task signals, control loop, guardrails, and scheduler integration](assets/CLASP-Diagram.png)
 
 1. **Learn each task's rhythm.** CLASP tracks how long a task usually sleeps between bursts of work and sets its latency target to a quarter of that, kept between 250 µs and 8 ms. A task that wakes every millisecond gets the 250 µs minimum, a 60 Hz task about 4 ms, and a once-a-second daemon the 8 ms maximum.
 2. **Measure the real wait.** On every wake-up, CLASP times how long the task waited before it actually got the CPU.
